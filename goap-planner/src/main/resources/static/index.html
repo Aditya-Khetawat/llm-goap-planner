@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GOAP Planner</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>GOAP Planner</h1>
+      </header>
+
+      <main>
+        <section class="input-section">
+          <label for="goalInput">Enter your goal:</label>
+          <textarea
+            id="goalInput"
+            placeholder="Describe the goal you want the AI to plan for..."
+            rows="8"
+          >
+          </textarea>
+          <button id="generateBtn" onclick="generatePlan()">
+            Generate Plan
+          </button>
+        </section>
+
+        <section id="resultSection" class="result-section hidden">
+          <h2>Generated Plan</h2>
+          <div id="planResult">
+            <!-- Plan results will be displayed here -->
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <p>GOAP Planner - Goal Oriented Action Planning</p>
+      </footer>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
