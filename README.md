@@ -72,7 +72,7 @@ GOAP Planner
 
 ## Team Members
 
-- Aditya Vardhan Kheta
+- Aditya Khetawat
 
 ## Current Progress
 
