@@ -73,6 +73,7 @@ GOAP Planner
 ## Team Members
 
 - Aditya Khetawat
+- Aryan Thakur
 
 ## Current Progress
 
