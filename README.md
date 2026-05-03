@@ -19,15 +19,16 @@ This is a Spring Boot-based web application designed to prototype and visualize 
 ### Current Features
 
 - **REST API Backend** - Spring Boot-based backend for handling planning requests
-- **Web Interface** - Clean, responsive HTML/CSS/JavaScript frontend
-- **Goal Input** - Simple textarea for entering planning goals
+- **Web Interface** - Clean, responsive HTML/CSS/JavaScript frontend with live rendering
+- **Goal Input** - Structured form for entering planning goals
+- **Plan Visualization** - Mermaid flowchart rendering for generated plans
+- **Loading and Error States** - Clear feedback while the backend responds
 - **Modular Architecture** - Organized package structure for scalability
 
 ### Planned Features
 
 - GOAP planning algorithm implementation
 - LLM integration via Ollama for natural language processing
-- Plan visualization using Mermaid.js
 - Step-by-step action decomposition
 - Interactive plan exploration UI
 
@@ -130,6 +131,13 @@ GOAP Planner
 4. **Access the application**
    - Web UI: `http://localhost:8080`
    - API Test: `http://localhost:8080/hello`
+   - Plan API: `http://localhost:8080/api/plans`
+
+### API Contract
+
+- `POST /api/plans` accepts a JSON body such as `{"goal":"launch a demo"}`
+- The response includes the goal, summary, execution steps, Mermaid diagram text, and a timestamp
+- The frontend uses that response to render the step list and visualization dynamically
 
 ### Project Structure
 

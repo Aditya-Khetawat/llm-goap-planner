@@ -4,38 +4,138 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GOAP Planner</title>
+    <meta
+      name="description"
+      content="Generate and visualize GOAP-style action plans with a Spring Boot backend."
+    />
     <link rel="stylesheet" href="style.css" />
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
+    ></script>
   </head>
   <body>
-    <div class="container">
-      <header>
-        <h1>GOAP Planner</h1>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">GOAP Planner</p>
+          <h1>Turn a goal into a structured action plan.</h1>
+          <p class="hero-text">
+            Write a goal, generate a backend-driven plan, and inspect the output
+            as both steps and a Mermaid flowchart.
+          </p>
+        </div>
+        <div class="hero-badges" aria-label="Capabilities">
+          <span>Spring Boot API</span>
+          <span>Mermaid rendering</span>
+          <span>Loading states</span>
+        </div>
       </header>
 
-      <main>
-        <section class="input-section">
-          <label for="goalInput">Enter your goal:</label>
-          <textarea
-            id="goalInput"
-            placeholder="Describe the goal you want the AI to plan for..."
-            rows="8"
-          >
-          </textarea>
-          <button id="generateBtn" onclick="generatePlan()">
-            Generate Plan
-          </button>
+      <main class="layout">
+        <section class="panel input-panel" aria-labelledby="goalHeading">
+          <div class="panel-heading">
+            <p class="panel-kicker">1. Input</p>
+            <h2 id="goalHeading">Describe the objective</h2>
+          </div>
+
+          <form id="goalForm" class="goal-form">
+            <label for="goalInput">Goal</label>
+            <textarea
+              id="goalInput"
+              placeholder="Example: deliver a weekly project demo with a stable build and notes"
+              rows="8"
+            ></textarea>
+
+            <div class="form-actions">
+              <button id="generateBtn" type="submit">Generate plan</button>
+              <p class="hint">Press Ctrl+Enter or Cmd+Enter to submit.</p>
+            </div>
+          </form>
         </section>
 
-        <section id="resultSection" class="result-section hidden">
-          <h2>Generated Plan</h2>
-          <div id="planResult">
-            <!-- Plan results will be displayed here -->
+        <section class="panel output-panel" aria-labelledby="resultHeading">
+          <div class="panel-heading">
+            <p class="panel-kicker">2. Output</p>
+            <h2 id="resultHeading">Plan preview</h2>
+          </div>
+
+          <div id="statusBanner" class="status-banner" aria-live="polite">
+            Enter a goal to generate a plan.
+          </div>
+
+          <div id="emptyState" class="state-card">
+            <h3>No plan yet</h3>
+            <p>
+              The backend will return a summary, a step list, and a Mermaid
+              flowchart after you submit a goal.
+            </p>
+          </div>
+
+          <div id="loadingState" class="state-card hidden">
+            <div class="spinner" aria-hidden="true"></div>
+            <div>
+              <h3>Generating plan</h3>
+              <p>Calling the backend and building the visualization.</p>
+            </div>
+          </div>
+
+          <div
+            id="errorState"
+            class="state-card error-card hidden"
+            role="alert"
+          >
+            <h3>Could not generate a plan</h3>
+            <p id="errorMessage"></p>
+          </div>
+
+          <div id="planContent" class="plan-content hidden">
+            <div class="summary-grid">
+              <article class="info-card">
+                <p class="card-label">Goal</p>
+                <p id="planGoal" class="card-value"></p>
+              </article>
+              <article class="info-card">
+                <p class="card-label">Status</p>
+                <p id="planStatus" class="card-value"></p>
+              </article>
+              <article class="info-card">
+                <p class="card-label">Generated</p>
+                <p id="planGeneratedAt" class="card-value"></p>
+              </article>
+            </div>
+
+            <article class="section-card">
+              <h3>Summary</h3>
+              <p id="planSummary"></p>
+            </article>
+
+            <article class="section-card">
+              <h3>Steps</h3>
+              <ol id="planSteps" class="step-list"></ol>
+            </article>
+
+            <article class="section-card">
+              <div class="section-header">
+                <h3>Mermaid diagram</h3>
+                <button
+                  id="copyDiagramBtn"
+                  type="button"
+                  class="secondary-button"
+                >
+                  Copy diagram
+                </button>
+              </div>
+              <div id="diagramContainer" class="diagram-container"></div>
+            </article>
           </div>
         </section>
       </main>
 
-      <footer>
-        <p>GOAP Planner - Goal Oriented Action Planning</p>
+      <footer class="footer">
+        <p>
+          GOAP Planner · Goal-oriented action planning with live visualization.
+        </p>
       </footer>
     </div>
 
