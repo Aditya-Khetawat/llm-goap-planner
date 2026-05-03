@@ -1,10 +1,12 @@
 const apiEndpoint = "/api/plans";
 let latestDiagram = "";
+let latestAssignments = [];
 
 document.addEventListener("DOMContentLoaded", () => {
   const goalForm = document.getElementById("goalForm");
   const goalInput = document.getElementById("goalInput");
   const copyDiagramBtn = document.getElementById("copyDiagramBtn");
+  const copyAssignmentsBtn = document.getElementById("copyAssignmentsBtn");
 
   if (window.mermaid) {
     window.mermaid.initialize({
@@ -41,6 +43,27 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       await navigator.clipboard.writeText(latestDiagram);
       setStatus("Mermaid diagram copied to clipboard.");
+    } catch (error) {
+      setStatus("Copy failed. Your browser may block clipboard access.");
+    }
+  });
+
+  copyAssignmentsBtn.addEventListener("click", async () => {
+    if (!latestAssignments.length) {
+      setStatus("No agent table is available to copy yet.");
+      return;
+    }
+
+    const lines = ["Step\tAgent"];
+    latestAssignments.forEach((assignment) => {
+      lines.push(
+        `${assignment.stepTitle}\t${assignment.agent}\t${assignment.capability}\t${assignment.status}\t${assignment.handoffTo}`,
+      );
+    });
+
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      setStatus("Agent assignment table copied to clipboard.");
     } catch (error) {
       setStatus("Copy failed. Your browser may block clipboard access.");
     }
@@ -99,6 +122,7 @@ function renderPlan(plan) {
   const planGeneratedAt = document.getElementById("planGeneratedAt");
   const planSummary = document.getElementById("planSummary");
   const planSteps = document.getElementById("planSteps");
+  const assignmentRows = document.getElementById("assignmentRows");
   const diagramContainer = document.getElementById("diagramContainer");
 
   emptyState.classList.add("hidden");
@@ -124,8 +148,37 @@ function renderPlan(plan) {
     planSteps.appendChild(item);
   });
 
+  latestAssignments = plan.assignments || [];
+  renderAssignments(assignmentRows, latestAssignments);
+
   latestDiagram = plan.mermaidDiagram || "";
   renderDiagram(diagramContainer, latestDiagram);
+}
+
+function renderAssignments(container, assignments) {
+  container.innerHTML = "";
+
+  if (!assignments.length) {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td colspan="2" class="empty-cell">No assignments returned.</td>`;
+    container.appendChild(row);
+    return;
+  }
+
+  assignments.forEach((assignment) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>
+        <span class="assignment-step">${escapeHtml(assignment.stepTitle || "Step")}</span>
+        <p class="assignment-rationale">${escapeHtml(assignment.rationale || "")}</p>
+      </td>
+      <td><span class="assignment-agent">${escapeHtml(assignment.agent || "Agent")}</span></td>
+      <td>${escapeHtml(assignment.capability || "-")}</td>
+      <td><span class="assignment-status status-${toSlug(assignment.status || "unknown")}">${escapeHtml(assignment.status || "Unknown")}</span></td>
+      <td>${escapeHtml(assignment.handoffTo || "-")}</td>
+    `;
+    container.appendChild(row);
+  });
 }
 
 async function renderDiagram(container, diagramCode) {
@@ -211,4 +264,11 @@ function formatTimestamp(value) {
   }
 
   return parsed.toLocaleString();
+}
+
+function toSlug(value) {
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }

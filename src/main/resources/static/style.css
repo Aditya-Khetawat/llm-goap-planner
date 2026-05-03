@@ -269,6 +269,99 @@ button:disabled {
   padding: 18px;
 }
 
+.section-intro {
+  margin: -4px 0 14px;
+  color: var(--muted);
+}
+
+.assignment-table-wrap {
+  overflow-x: auto;
+}
+
+.assignment-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.assignment-table thead th {
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.assignment-table tbody td {
+  vertical-align: top;
+  padding: 14px;
+  border-bottom: 1px solid rgba(46, 64, 96, 0.08);
+}
+
+.assignment-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.assignment-step {
+  display: block;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.assignment-rationale {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.assignment-agent {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(57, 73, 171, 0.09);
+  color: #26338a;
+  font-weight: 700;
+}
+
+.assignment-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #22306a;
+  background: rgba(57, 73, 171, 0.08);
+}
+
+.status-ready {
+  background: rgba(76, 175, 80, 0.14);
+  color: #226b29;
+}
+
+.status-queued {
+  background: rgba(255, 193, 7, 0.18);
+  color: #745400;
+}
+
+.status-in-progress {
+  background: rgba(57, 73, 171, 0.12);
+  color: #26338a;
+}
+
+.status-waiting,
+.status-unknown {
+  background: rgba(120, 132, 156, 0.16);
+  color: #4d5a70;
+}
+
+.empty-cell {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .section-header {
   display: flex;
   justify-content: space-between;

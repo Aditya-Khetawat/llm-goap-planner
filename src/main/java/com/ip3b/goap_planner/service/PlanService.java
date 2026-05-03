@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import com.ip3b.goap_planner.model.PlanRequest;
 import com.ip3b.goap_planner.model.PlanResponse;
+import com.ip3b.goap_planner.model.PlanAssignment;
 import com.ip3b.goap_planner.model.PlanStep;
 
 @Service
@@ -20,7 +21,14 @@ public class PlanService {
 
         PlanBlueprint blueprint = selectBlueprint(lowerGoal, goal);
 
-        return new PlanResponse(goal, blueprint.summary(), "Ready", blueprint.steps(), blueprint.mermaidDiagram(), Instant.now());
+        return new PlanResponse(
+                goal,
+                blueprint.summary(),
+                "Ready",
+                blueprint.steps(),
+                blueprint.assignments(),
+                blueprint.mermaidDiagram(),
+                Instant.now());
     }
 
     private PlanBlueprint selectBlueprint(String lowerGoal, String goal) {
@@ -71,9 +79,15 @@ public class PlanService {
                 new PlanStep(3, "Build a demoable core", "Ship the smallest feature set that clearly proves the idea."),
                 new PlanStep(4, "Polish the pitch and fallback plan", "Prepare a crisp presentation, backup screenshots, and a stable demo path."));
 
+        List<PlanAssignment> assignments = Arrays.asList(
+                new PlanAssignment(1, "Define challenge scope", "ResearchAgent", "Research and analysis", "Ready", "CoordinationAgent", "Collects the brief, constraints, and judging criteria."),
+                new PlanAssignment(2, "Split into workstreams", "CoordinationAgent", "Task orchestration", "Queued", "BuildAgent", "Keeps the team aligned on parallel tasks and handoffs."),
+                new PlanAssignment(3, "Build a demoable core", "BuildAgent", "Rapid prototyping", "In progress", "PitchAgent", "Turns the core idea into a working prototype."),
+                new PlanAssignment(4, "Polish the pitch and fallback plan", "PitchAgent", "Presentation refinement", "Queued", "FinalReviewAgent", "Shapes the final story and demo backup path."));
+
         String summary = "This hackathon plan prioritizes scope control, parallel execution, and a demo that survives presentation-day surprises.";
         String mermaidDiagram = buildMermaidDiagram(goal, steps);
-        return new PlanBlueprint(summary, steps, mermaidDiagram);
+        return new PlanBlueprint(summary, steps, assignments, mermaidDiagram);
     }
 
     private PlanBlueprint buildMobileAppBlueprint(String goal) {
@@ -84,9 +98,16 @@ public class PlanService {
                 new PlanStep(4, "Prepare launch assets", "Finish store copy, screenshots, release notes, and the rollout checklist."),
                 new PlanStep(5, "Monitor post-launch signals", "Watch crashes, reviews, and retention to decide the first iteration."));
 
+        List<PlanAssignment> assignments = Arrays.asList(
+                new PlanAssignment(1, "Clarify product promise", "ProductAgent", "Product framing", "Ready", "DesignAgent", "Frames the user problem and MVP outcome."),
+                new PlanAssignment(2, "Map the first release", "DesignAgent", "UX flow design", "Queued", "IntegrationAgent", "Shapes the launch path and screens around the MVP."),
+                new PlanAssignment(3, "Build and validate flows", "IntegrationAgent", "Cross-system integration", "In progress", "LaunchAgent", "Connects screens, backend, and device validation."),
+                new PlanAssignment(4, "Prepare launch assets", "LaunchAgent", "Release coordination", "Queued", "MetricsAgent", "Packages store listing and release materials."),
+                new PlanAssignment(5, "Monitor post-launch signals", "MetricsAgent", "Telemetry and feedback analysis", "Waiting", "ProductAgent", "Tracks crashes, reviews, and retention after release."));
+
         String summary = "This mobile app plan focuses on product clarity, a minimal launch scope, and the post-release feedback loop.";
         String mermaidDiagram = buildMermaidDiagram(goal, steps).replace("flowchart TD", "flowchart LR");
-        return new PlanBlueprint(summary, steps, mermaidDiagram);
+        return new PlanBlueprint(summary, steps, assignments, mermaidDiagram);
     }
 
     private PlanBlueprint buildBirthdayPartyBlueprint(String goal) {
@@ -96,9 +117,15 @@ public class PlanService {
                 new PlanStep(3, "Plan food, cake, and activities", "Coordinate the menu, order the cake, and pick a few easy crowd-pleasers."),
                 new PlanStep(4, "Send reminders and prep supplies", "Confirm RSVPs, buy decorations, and pack the items needed on the day."));
 
+        List<PlanAssignment> assignments = Arrays.asList(
+                new PlanAssignment(1, "Lock the guest list", "CalendarAgent", "Scheduling and RSVP tracking", "Ready", "VenueAgent", "Tracks RSVPs, timing, and guest constraints."),
+                new PlanAssignment(2, "Reserve the venue and timing", "VenueAgent", "Venue coordination", "Queued", "EventsAgent", "Checks location availability and setup windows."),
+                new PlanAssignment(3, "Plan food, cake, and activities", "EventsAgent", "Event planning", "In progress", "MailAgent", "Coordinates menu, entertainment, and cake ordering."),
+                new PlanAssignment(4, "Send reminders and prep supplies", "MailAgent", "Invitations and reminders", "Queued", "CalendarAgent", "Handles invitations, reminders, and day-of supplies."));
+
         String summary = "This birthday party plan emphasizes logistics, guest coordination, and the small details that make the event feel effortless.";
         String mermaidDiagram = buildPartyMermaidDiagram(goal, steps);
-        return new PlanBlueprint(summary, steps, mermaidDiagram);
+        return new PlanBlueprint(summary, steps, assignments, mermaidDiagram);
     }
 
     private PlanBlueprint buildGenericBlueprint(String goal) {
@@ -108,9 +135,15 @@ public class PlanService {
                 new PlanStep(3, "Sequence the actions", "Order the work from prerequisites to execution in the smallest viable chain."),
                 new PlanStep(4, "Review and adapt", "Compare the result with the goal and decide the next adjustment."));
 
+        List<PlanAssignment> assignments = Arrays.asList(
+                new PlanAssignment(1, "Define the outcome", "PlannerAgent", "Goal decomposition", "Ready", "AnalyzerAgent", "Turns the goal into a checkable result."),
+                new PlanAssignment(2, "List constraints and inputs", "AnalyzerAgent", "Constraint analysis", "Queued", "OrchestratorAgent", "Collects the conditions and dependencies around the goal."),
+                new PlanAssignment(3, "Sequence the actions", "OrchestratorAgent", "Execution routing", "In progress", "ReviewAgent", "Orders the steps into a viable execution path."),
+                new PlanAssignment(4, "Review and adapt", "ReviewAgent", "Quality review", "Waiting", "PlannerAgent", "Checks the result and recommends the next change."));
+
         String summary = "This starter plan adapts the action sequence to the supplied goal using a simple GOAP-style breakdown.";
         String mermaidDiagram = buildMermaidDiagram(goal, steps);
-        return new PlanBlueprint(summary, steps, mermaidDiagram);
+        return new PlanBlueprint(summary, steps, assignments, mermaidDiagram);
     }
 
     private String buildPartyMermaidDiagram(String goal, List<PlanStep> steps) {
@@ -145,6 +178,6 @@ public class PlanService {
                 .replace("}", ")");
     }
 
-    private record PlanBlueprint(String summary, List<PlanStep> steps, String mermaidDiagram) {
+    private record PlanBlueprint(String summary, List<PlanStep> steps, List<PlanAssignment> assignments, String mermaidDiagram) {
     }
 }

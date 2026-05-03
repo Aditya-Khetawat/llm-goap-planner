@@ -117,6 +117,40 @@
 
             <article class="section-card">
               <div class="section-header">
+                <h3>Agent orchestration</h3>
+                <button
+                  id="copyAssignmentsBtn"
+                  type="button"
+                  class="secondary-button"
+                >
+                  Copy table
+                </button>
+              </div>
+              <p class="section-intro">
+                Each step is mapped to a mock agent, its capability, current
+                status, and the next handoff.
+              </p>
+              <div class="assignment-table-wrap">
+                <table
+                  class="assignment-table"
+                  aria-label="Agent orchestration table"
+                >
+                  <thead>
+                    <tr>
+                      <th scope="col">Step</th>
+                      <th scope="col">Agent</th>
+                      <th scope="col">Capability</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Handoff</th>
+                    </tr>
+                  </thead>
+                  <tbody id="assignmentRows"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="section-card">
+              <div class="section-header">
                 <h3>Mermaid diagram</h3>
                 <button
                   id="copyDiagramBtn"

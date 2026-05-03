@@ -8,6 +8,7 @@ public record PlanResponse(
         String summary,
         String status,
         List<PlanStep> steps,
+        List<PlanAssignment> assignments,
         String mermaidDiagram,
         Instant generatedAt) {
 }
