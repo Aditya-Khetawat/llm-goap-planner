@@ -1,11 +1,13 @@
 const apiEndpoint = "/api/plans";
 let latestDiagram = "";
+let latestGantt = "";
 let latestAssignments = [];
 
 document.addEventListener("DOMContentLoaded", () => {
   const goalForm = document.getElementById("goalForm");
   const goalInput = document.getElementById("goalInput");
   const copyDiagramBtn = document.getElementById("copyDiagramBtn");
+  const copyGanttBtn = document.getElementById("copyGanttBtn");
   const copyAssignmentsBtn = document.getElementById("copyAssignmentsBtn");
 
   if (window.mermaid) {
@@ -48,13 +50,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  copyGanttBtn.addEventListener("click", async () => {
+    if (!latestGantt) {
+      setStatus("No Gantt chart is available to copy yet.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(latestGantt);
+      setStatus("Mermaid Gantt chart copied to clipboard.");
+    } catch (error) {
+      setStatus("Copy failed. Your browser may block clipboard access.");
+    }
+  });
+
   copyAssignmentsBtn.addEventListener("click", async () => {
     if (!latestAssignments.length) {
       setStatus("No agent table is available to copy yet.");
       return;
     }
 
-    const lines = ["Step\tAgent"];
+    const lines = ["Step\tAgent\tCapability\tStatus\tHandoff"];
     latestAssignments.forEach((assignment) => {
       lines.push(
         `${assignment.stepTitle}\t${assignment.agent}\t${assignment.capability}\t${assignment.status}\t${assignment.handoffTo}`,
@@ -124,6 +140,7 @@ function renderPlan(plan) {
   const planSteps = document.getElementById("planSteps");
   const assignmentRows = document.getElementById("assignmentRows");
   const diagramContainer = document.getElementById("diagramContainer");
+  const ganttContainer = document.getElementById("ganttContainer");
 
   emptyState.classList.add("hidden");
   planContent.classList.remove("hidden");
@@ -153,6 +170,9 @@ function renderPlan(plan) {
 
   latestDiagram = plan.mermaidDiagram || "";
   renderDiagram(diagramContainer, latestDiagram);
+
+  latestGantt = plan.ganttDiagram || "";
+  renderDiagram(ganttContainer, latestGantt);
 }
 
 function renderAssignments(container, assignments) {

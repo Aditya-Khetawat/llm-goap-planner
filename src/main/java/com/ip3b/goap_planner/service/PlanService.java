@@ -1,19 +1,26 @@
 package com.ip3b.goap_planner.service;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.ip3b.goap_planner.model.MermaidGanttTask;
+import com.ip3b.goap_planner.model.PlanAssignment;
 import com.ip3b.goap_planner.model.PlanRequest;
 import com.ip3b.goap_planner.model.PlanResponse;
-import com.ip3b.goap_planner.model.PlanAssignment;
 import com.ip3b.goap_planner.model.PlanStep;
+import com.ip3b.goap_planner.visualization.MermaidPlanDiagramFactory;
 
 @Service
 public class PlanService {
+
+    private final MermaidPlanDiagramFactory diagramFactory;
+
+    public PlanService(MermaidPlanDiagramFactory diagramFactory) {
+        this.diagramFactory = diagramFactory;
+    }
 
     public PlanResponse generatePlan(PlanRequest request) {
         String goal = normalizeGoal(request == null ? null : request.goal());
@@ -28,6 +35,7 @@ public class PlanService {
                 blueprint.steps(),
                 blueprint.assignments(),
                 blueprint.mermaidDiagram(),
+                blueprint.ganttDiagram(),
                 Instant.now());
     }
 
@@ -54,24 +62,6 @@ public class PlanService {
         return goal.trim();
     }
 
-    private String buildMermaidDiagram(String goal, List<PlanStep> steps) {
-        String safeGoal = escapeMermaid(goal.isBlank() ? "Plan" : goal);
-        StringBuilder builder = new StringBuilder();
-        builder.append("flowchart TD\n");
-        builder.append("    G[Goal: ").append(safeGoal).append("]\n");
-
-        String previousNode = "G";
-        for (PlanStep step : steps) {
-            String nodeId = "S" + step.order();
-            builder.append("    ").append(nodeId).append("[Step ").append(step.order()).append(": ")
-                .append(escapeMermaid(step.title())).append("]\n");
-            builder.append("    ").append(previousNode).append(" --> ").append(nodeId).append("\n");
-            previousNode = nodeId;
-        }
-
-        return builder.toString();
-    }
-
     private PlanBlueprint buildHackathonBlueprint(String goal) {
         List<PlanStep> steps = Arrays.asList(
                 new PlanStep(1, "Define challenge scope", "Pick a theme, success criteria, and team roles before coding starts."),
@@ -85,9 +75,14 @@ public class PlanService {
                 new PlanAssignment(3, "Build a demoable core", "BuildAgent", "Rapid prototyping", "In progress", "PitchAgent", "Turns the core idea into a working prototype."),
                 new PlanAssignment(4, "Polish the pitch and fallback plan", "PitchAgent", "Presentation refinement", "Queued", "FinalReviewAgent", "Shapes the final story and demo backup path."));
 
+        List<MermaidGanttTask> ganttTasks = Arrays.asList(
+                new MermaidGanttTask("Scope", "Define challenge scope (ResearchAgent)", "hackathon_scope", 0, 1),
+                new MermaidGanttTask("Coordination", "Split workstreams (CoordinationAgent)", "hackathon_coordination", 1, 1),
+                new MermaidGanttTask("Build", "Build demo core (BuildAgent)", "hackathon_build", 1, 2),
+                new MermaidGanttTask("Pitch", "Polish pitch and fallback plan (PitchAgent)", "hackathon_pitch", 3, 1));
+
         String summary = "This hackathon plan prioritizes scope control, parallel execution, and a demo that survives presentation-day surprises.";
-        String mermaidDiagram = buildMermaidDiagram(goal, steps);
-        return new PlanBlueprint(summary, steps, assignments, mermaidDiagram);
+        return new PlanBlueprint(summary, steps, assignments, diagramFactory.buildFlowchart(goal, steps), diagramFactory.buildGantt(goal, ganttTasks));
     }
 
     private PlanBlueprint buildMobileAppBlueprint(String goal) {
@@ -105,9 +100,15 @@ public class PlanService {
                 new PlanAssignment(4, "Prepare launch assets", "LaunchAgent", "Release coordination", "Queued", "MetricsAgent", "Packages store listing and release materials."),
                 new PlanAssignment(5, "Monitor post-launch signals", "MetricsAgent", "Telemetry and feedback analysis", "Waiting", "ProductAgent", "Tracks crashes, reviews, and retention after release."));
 
+        List<MermaidGanttTask> ganttTasks = Arrays.asList(
+                new MermaidGanttTask("Product", "Clarify product promise (ProductAgent)", "app_product", 0, 1),
+                new MermaidGanttTask("Design", "Map first release (DesignAgent)", "app_design", 1, 2),
+                new MermaidGanttTask("Build", "Build and validate flows (IntegrationAgent)", "app_build", 2, 3),
+                new MermaidGanttTask("Launch", "Prepare launch assets (LaunchAgent)", "app_launch", 5, 1),
+                new MermaidGanttTask("Observe", "Monitor post-launch signals (MetricsAgent)", "app_metrics", 6, 2));
+
         String summary = "This mobile app plan focuses on product clarity, a minimal launch scope, and the post-release feedback loop.";
-        String mermaidDiagram = buildMermaidDiagram(goal, steps).replace("flowchart TD", "flowchart LR");
-        return new PlanBlueprint(summary, steps, assignments, mermaidDiagram);
+        return new PlanBlueprint(summary, steps, assignments, diagramFactory.buildFlowchart(goal, steps).replace("flowchart TD", "flowchart LR"), diagramFactory.buildGantt(goal, ganttTasks));
     }
 
     private PlanBlueprint buildBirthdayPartyBlueprint(String goal) {
@@ -123,9 +124,14 @@ public class PlanService {
                 new PlanAssignment(3, "Plan food, cake, and activities", "EventsAgent", "Event planning", "In progress", "MailAgent", "Coordinates menu, entertainment, and cake ordering."),
                 new PlanAssignment(4, "Send reminders and prep supplies", "MailAgent", "Invitations and reminders", "Queued", "CalendarAgent", "Handles invitations, reminders, and day-of supplies."));
 
+        List<MermaidGanttTask> ganttTasks = Arrays.asList(
+                new MermaidGanttTask("Setup", "Lock guest list (CalendarAgent)", "party_guests", 0, 1),
+                new MermaidGanttTask("Setup", "Reserve venue and timing (VenueAgent)", "party_venue", 0, 2),
+                new MermaidGanttTask("Food & Fun", "Plan food, cake, and activities (EventsAgent)", "party_food", 1, 2),
+                new MermaidGanttTask("Reminder", "Send reminders and prep supplies (MailAgent)", "party_reminders", 2, 1));
+
         String summary = "This birthday party plan emphasizes logistics, guest coordination, and the small details that make the event feel effortless.";
-        String mermaidDiagram = buildPartyMermaidDiagram(goal, steps);
-        return new PlanBlueprint(summary, steps, assignments, mermaidDiagram);
+        return new PlanBlueprint(summary, steps, assignments, diagramFactory.buildFlowchart(goal, steps), diagramFactory.buildGantt(goal, ganttTasks));
     }
 
     private PlanBlueprint buildGenericBlueprint(String goal) {
@@ -141,21 +147,14 @@ public class PlanService {
                 new PlanAssignment(3, "Sequence the actions", "OrchestratorAgent", "Execution routing", "In progress", "ReviewAgent", "Orders the steps into a viable execution path."),
                 new PlanAssignment(4, "Review and adapt", "ReviewAgent", "Quality review", "Waiting", "PlannerAgent", "Checks the result and recommends the next change."));
 
-        String summary = "This starter plan adapts the action sequence to the supplied goal using a simple GOAP-style breakdown.";
-        String mermaidDiagram = buildMermaidDiagram(goal, steps);
-        return new PlanBlueprint(summary, steps, assignments, mermaidDiagram);
-    }
+        List<MermaidGanttTask> ganttTasks = Arrays.asList(
+                new MermaidGanttTask("Analysis", "Define the outcome (PlannerAgent)", "generic_define", 0, 1),
+                new MermaidGanttTask("Analysis", "List constraints and inputs (AnalyzerAgent)", "generic_analyze", 1, 1),
+                new MermaidGanttTask("Execution", "Sequence the actions (OrchestratorAgent)", "generic_sequence", 2, 2),
+                new MermaidGanttTask("Review", "Review and adapt (ReviewAgent)", "generic_review", 4, 1));
 
-    private String buildPartyMermaidDiagram(String goal, List<PlanStep> steps) {
-        String safeGoal = escapeMermaid(goal.isBlank() ? "Plan" : goal);
-        StringBuilder builder = new StringBuilder();
-        builder.append("flowchart TD\n");
-        builder.append("    G[Goal: ").append(safeGoal).append("]\n");
-        builder.append("    G --> S1[Step 1: ").append(escapeMermaid(steps.get(0).title())).append("]\n");
-        builder.append("    G --> S2[Step 2: ").append(escapeMermaid(steps.get(1).title())).append("]\n");
-        builder.append("    S1 --> S3[Step 3: ").append(escapeMermaid(steps.get(2).title())).append("]\n");
-        builder.append("    S2 --> S4[Step 4: ").append(escapeMermaid(steps.get(3).title())).append("]\n");
-        return builder.toString();
+        String summary = "This starter plan adapts the action sequence to the supplied goal using a simple GOAP-style breakdown.";
+        return new PlanBlueprint(summary, steps, assignments, diagramFactory.buildFlowchart(goal, steps), diagramFactory.buildGantt(goal, ganttTasks));
     }
 
     private boolean containsAny(String text, String... candidates) {
@@ -168,16 +167,11 @@ public class PlanService {
         return false;
     }
 
-    private String escapeMermaid(String value) {
-        return value
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("[", "(")
-                .replace("]", ")")
-                .replace("{", "(")
-                .replace("}", ")");
-    }
-
-    private record PlanBlueprint(String summary, List<PlanStep> steps, List<PlanAssignment> assignments, String mermaidDiagram) {
+    private record PlanBlueprint(
+            String summary,
+            List<PlanStep> steps,
+            List<PlanAssignment> assignments,
+            String mermaidDiagram,
+            String ganttDiagram) {
     }
 }

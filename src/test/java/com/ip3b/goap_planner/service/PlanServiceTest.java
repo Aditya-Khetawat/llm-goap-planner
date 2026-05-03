@@ -8,10 +8,11 @@ import org.junit.jupiter.api.Test;
 
 import com.ip3b.goap_planner.model.PlanRequest;
 import com.ip3b.goap_planner.model.PlanResponse;
+import com.ip3b.goap_planner.visualization.MermaidPlanDiagramFactory;
 
 class PlanServiceTest {
 
-    private final PlanService planService = new PlanService();
+    private final PlanService planService = new PlanService(new MermaidPlanDiagramFactory());
 
     @Test
     void generatesDifferentPlansForDifferentGoals() {
@@ -27,6 +28,12 @@ class PlanServiceTest {
         assertNotEquals(appLaunch.summary(), birthdayParty.summary());
         assertNotEquals(hackathon.mermaidDiagram(), appLaunch.mermaidDiagram());
         assertNotEquals(appLaunch.mermaidDiagram(), birthdayParty.mermaidDiagram());
+        assertNotEquals(hackathon.ganttDiagram(), appLaunch.ganttDiagram());
+        assertNotEquals(appLaunch.ganttDiagram(), birthdayParty.ganttDiagram());
+
+        assertTrue(hackathon.ganttDiagram().contains("gantt"));
+        assertTrue(appLaunch.ganttDiagram().contains("gantt"));
+        assertTrue(birthdayParty.ganttDiagram().contains("gantt"));
 
         assertTrue(hackathon.steps().get(0).title().toLowerCase().contains("challenge"));
         assertTrue(appLaunch.steps().get(0).title().toLowerCase().contains("product"));
