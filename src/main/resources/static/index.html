@@ -100,8 +100,16 @@
             class="state-card error-card hidden"
             role="alert"
           >
-            <h3>Could not generate a plan</h3>
-            <p id="errorMessage"></p>
+            <div class="error-icon">⚠️</div>
+            <div class="error-content">
+              <h3 id="errorTitle">Could not generate a plan</h3>
+              <p id="errorMessage"></p>
+              <p id="errorCode" class="error-code"></p>
+              <div class="error-actions">
+                <button id="retryBtn" class="retry-button">Try again</button>
+                <button id="clearBtn" class="clear-button">Clear</button>
+              </div>
+            </div>
           </div>
 
           <div id="planContent" class="plan-content hidden">

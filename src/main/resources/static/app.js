@@ -3,12 +3,21 @@ let latestDiagram = "";
 let latestGantt = "";
 let latestAssignments = [];
 let loadingInterval = null;
+let lastGoal = "";
 const loadingSteps = [
   { step: "generating", text: "Generating plan..." },
   { step: "analyzing", text: "Analyzing goal..." },
   { step: "assigning", text: "Assigning agents..." },
 ];
 let currentLoadingStep = 0;
+
+const ErrorTypes = {
+  VALIDATION: "validation",
+  NETWORK: "network",
+  SERVER: "server",
+  PARSE: "parse",
+  UNKNOWN: "unknown",
+};
 
 document.addEventListener("DOMContentLoaded", () => {
   const goalForm = document.getElementById("goalForm");
@@ -104,6 +113,17 @@ document.addEventListener("DOMContentLoaded", () => {
       setStatus("Copy failed. Your browser may block clipboard access.");
     }
   });
+
+  // Bind error action buttons
+  const retryBtn = document.getElementById("retryBtn");
+  const clearBtn = document.getElementById("clearBtn");
+  if (retryBtn) retryBtn.addEventListener("click", generatePlan);
+  if (clearBtn)
+    clearBtn.addEventListener("click", () => {
+      document.getElementById("goalInput").value = "";
+      clearStates();
+      document.getElementById("emptyState").classList.remove("hidden");
+    });
 });
 
 async function generatePlan() {
@@ -111,10 +131,15 @@ async function generatePlan() {
   const goal = goalInput.value.trim();
 
   if (!goal) {
-    showError("Please enter a goal before generating a plan.");
+    showError(
+      "Please enter a goal before generating a plan.",
+      ErrorTypes.VALIDATION,
+      "VALIDATION_ERROR",
+    );
     return;
   }
 
+  lastGoal = goal;
   clearStates();
   setLoading(true);
 
@@ -128,23 +153,46 @@ async function generatePlan() {
     });
 
     const responseText = await response.text();
-    const payload = responseText ? JSON.parse(responseText) : null;
+    let payload;
+    try {
+      payload = responseText ? JSON.parse(responseText) : null;
+    } catch (parseError) {
+      throw {
+        type: ErrorTypes.PARSE,
+        message: "Invalid server response format.",
+      };
+    }
 
     if (!response.ok) {
-      throw new Error(
-        payload?.message ||
+      const errorType =
+        response.status >= 500 ? ErrorTypes.SERVER : ErrorTypes.NETWORK;
+      throw {
+        type: errorType,
+        message:
+          payload?.message ||
           payload?.error ||
-          "The backend rejected the request.",
-      );
+          `Server error (${response.status})`,
+        code: `HTTP_${response.status}`,
+      };
     }
 
     renderPlan(payload);
     setStatus("Plan generated successfully.");
   } catch (error) {
-    showError(
-      error.message ||
-        "An unexpected error occurred while generating the plan.",
-    );
+    let errorType = ErrorTypes.UNKNOWN;
+    let errorCode = "UNKNOWN_ERROR";
+    let message = error.message || "An unexpected error occurred.";
+
+    if (error.type) {
+      errorType = error.type;
+      errorCode = error.code || "ERROR";
+    } else if (error instanceof TypeError) {
+      errorType = ErrorTypes.NETWORK;
+      errorCode = "NETWORK_ERROR";
+      message = "Network connection failed. Check your internet connection.";
+    }
+
+    showError(message, errorType, errorCode);
   } finally {
     setLoading(false);
   }
@@ -250,6 +298,12 @@ function clearStates() {
   const loadingState = document.getElementById("loadingState");
 
   if (loadingInterval) clearInterval(loadingInterval);
+
+  // Remove all error type classes
+  Object.values(ErrorTypes).forEach((type) => {
+    errorState.classList.remove(`error-${type}`);
+  });
+
   errorState.classList.add("hidden");
   loadingState.classList.add("hidden");
   emptyState.classList.add("hidden");
@@ -296,17 +350,40 @@ function updateLoadingStep() {
   currentLoadingStep++;
 }
 
-function showError(message) {
+function showError(
+  message,
+  errorType = ErrorTypes.UNKNOWN,
+  errorCode = "ERROR",
+) {
   const errorState = document.getElementById("errorState");
   const errorMessage = document.getElementById("errorMessage");
+  const errorCodeEl = document.getElementById("errorCode");
+  const errorTitle = document.getElementById("errorTitle");
   const emptyState = document.getElementById("emptyState");
   const planContent = document.getElementById("planContent");
+  const retryBtn = document.getElementById("retryBtn");
+
+  // Set error title based on type
+  const titleMap = {
+    [ErrorTypes.VALIDATION]: "Invalid input",
+    [ErrorTypes.NETWORK]: "Connection error",
+    [ErrorTypes.SERVER]: "Server error",
+    [ErrorTypes.PARSE]: "Response error",
+    [ErrorTypes.UNKNOWN]: "Generation failed",
+  };
+  errorTitle.textContent = titleMap[errorType] || "Generation failed";
+  errorState.classList.add(`error-${errorType}`);
 
   emptyState.classList.add("hidden");
   planContent.classList.add("hidden");
   errorMessage.textContent = message;
+  errorCodeEl.textContent = `Error code: ${errorCode}`;
   errorState.classList.remove("hidden");
-  setStatus(message);
+
+  // Bind retry handler
+  retryBtn.onclick = () => generatePlan();
+
+  setStatus(`Error: ${message}`);
 }
 
 function setStatus(message) {

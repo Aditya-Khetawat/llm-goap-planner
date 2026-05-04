@@ -170,13 +170,21 @@ button {
   font-weight: 700;
   cursor: pointer;
   transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    opacity 0.2s ease;
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s ease,
+    opacity 0.2s ease,
+    background 0.3s ease;
+  position: relative;
+  overflow: hidden;
 }
 
-button:hover {
-  transform: translateY(-1px);
+button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 button:disabled {
@@ -189,6 +197,7 @@ button:disabled {
   color: white;
   background: linear-gradient(135deg, var(--accent) 0%, #5f6ee8 100%);
   box-shadow: 0 14px 24px rgba(57, 73, 171, 0.22);
+  animation: slideInDown 0.4s ease-out;
 }
 
 .secondary-button {
@@ -223,6 +232,7 @@ button:disabled {
   align-items: center;
   gap: 16px;
   padding: 18px;
+  animation: slideInUp 0.4s ease-out;
 }
 
 .state-card h3,
@@ -231,8 +241,83 @@ button:disabled {
 }
 
 .error-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 24px;
   border-color: rgba(203, 55, 55, 0.25);
   background: rgba(255, 244, 244, 0.95);
+  animation: slideInUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.error-card.error-validation {
+  border-color: rgba(251, 146, 60, 0.3);
+  background: rgba(255, 250, 235, 0.95);
+}
+
+.error-card.error-network {
+  border-color: rgba(56, 189, 248, 0.3);
+  background: rgba(240, 249, 255, 0.95);
+}
+
+.error-card.error-server {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(254, 242, 242, 0.95);
+}
+
+.error-card.error-parse {
+  border-color: rgba(168, 85, 247, 0.3);
+  background: rgba(250, 245, 255, 0.95);
+}
+
+.error-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  animation: bounce 0.6s ease-in-out;
+}
+
+.error-content {
+  flex: 1;
+}
+
+.error-code {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-family: "Fira Code", monospace;
+}
+
+.error-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.retry-button,
+.clear-button {
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: white;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.retry-button:hover {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+  transform: translateY(-2px);
+}
+
+.clear-button:hover {
+  background: var(--muted);
+  color: white;
+  border-color: var(--muted);
+  transform: translateY(-2px);
 }
 
 .spinner {
@@ -327,6 +412,7 @@ button:disabled {
 .plan-content {
   display: grid;
   gap: 18px;
+  animation: fadeIn 0.5s ease-in-out;
 }
 
 .summary-grid {
@@ -335,8 +421,13 @@ button:disabled {
   gap: 12px;
 }
 
+.section-card {
+  animation: slideInUp 0.4s ease-in-out;
+}
+
 .info-card {
   padding: 16px;
+  animation: scaleIn 0.3s ease-in-out;
 }
 
 .card-value {
@@ -462,6 +553,13 @@ button:disabled {
   padding: 14px;
   border-radius: 16px;
   background: rgba(57, 73, 171, 0.045);
+  animation: slideInUp 0.3s ease-out;
+  transition: all 0.3s ease;
+}
+
+.step-item:hover {
+  background: rgba(57, 73, 171, 0.08);
+  transform: translateX(4px);
 }
 
 .step-index {
@@ -524,6 +622,58 @@ button:disabled {
   }
 }
 
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 @media (max-width: 1024px) {
   .layout,
   .summary-grid {
@@ -532,6 +682,104 @@ button:disabled {
 
   .hero {
     flex-direction: column;
+  }
+
+  body {
+    padding: 18px;
+  }
+
+  .hero h1 {
+    font-size: clamp(1.8rem, 4vw, 3rem);
+  }
+
+  textarea {
+    min-height: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 14px;
+  }
+
+  .hero,
+  .panel {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .hero h1 {
+    font-size: clamp(1.5rem, 3.5vw, 2.5rem);
+  }
+
+  .hero-badges {
+    gap: 8px;
+  }
+
+  .hero-badges span {
+    font-size: 0.85rem;
+    padding: 8px 12px;
+  }
+
+  .panel-heading h2 {
+    font-size: 1.2rem;
+  }
+
+  textarea {
+    min-height: 180px;
+    padding: 14px;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .info-card {
+    padding: 12px;
+  }
+
+  .step-item {
+    grid-template-columns: 40px 1fr;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .step-index {
+    width: 40px;
+    height: 40px;
+    font-size: 0.9rem;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .assignment-table {
+    font-size: 0.85rem;
+  }
+
+  .assignment-table thead,
+  .assignment-table tbody tr {
+    font-size: 0.8rem;
+  }
+
+  .error-card {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .error-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .retry-button,
+  .clear-button {
+    width: 100%;
+    text-align: center;
   }
 }
 
@@ -542,8 +790,8 @@ button:disabled {
 
   .hero,
   .panel {
-    padding: 18px;
-    border-radius: 20px;
+    padding: 14px;
+    border-radius: 14px;
   }
 
   .section-header {
