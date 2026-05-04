@@ -2,6 +2,13 @@ const apiEndpoint = "/api/plans";
 let latestDiagram = "";
 let latestGantt = "";
 let latestAssignments = [];
+let loadingInterval = null;
+const loadingSteps = [
+  { step: "generating", text: "Generating plan..." },
+  { step: "analyzing", text: "Analyzing goal..." },
+  { step: "assigning", text: "Assigning agents..." },
+];
+let currentLoadingStep = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
   const goalForm = document.getElementById("goalForm");
@@ -15,11 +22,24 @@ document.addEventListener("DOMContentLoaded", () => {
       startOnLoad: false,
       securityLevel: "loose",
       theme: "base",
+      flowchart: {
+        nodeSpacing: 50,
+        rankSpacing: 40,
+        padding: "10",
+        htmlLabels: true,
+      },
+      gantt: {
+        fontSize: 12,
+        gridLineStartPadding: 350,
+      },
       themeVariables: {
         primaryColor: "#e8eefc",
         primaryBorderColor: "#6b7fd7",
         primaryTextColor: "#18243a",
+        primaryBorderWidth: "2px",
         lineColor: "#64748b",
+        fontSize: "13px",
+        fontFamily: "system-ui, sans-serif",
       },
     });
   }
@@ -229,6 +249,7 @@ function clearStates() {
   const errorState = document.getElementById("errorState");
   const loadingState = document.getElementById("loadingState");
 
+  if (loadingInterval) clearInterval(loadingInterval);
   errorState.classList.add("hidden");
   loadingState.classList.add("hidden");
   emptyState.classList.add("hidden");
@@ -238,9 +259,41 @@ function setLoading(isLoading) {
   const loadingState = document.getElementById("loadingState");
   const generateBtn = document.getElementById("generateBtn");
 
-  loadingState.classList.toggle("hidden", !isLoading);
+  if (isLoading) {
+    currentLoadingStep = 0;
+    loadingState.classList.remove("hidden");
+    updateLoadingStep();
+
+    if (loadingInterval) clearInterval(loadingInterval);
+    loadingInterval = setInterval(updateLoadingStep, 800);
+  } else {
+    if (loadingInterval) clearInterval(loadingInterval);
+    loadingState.classList.add("hidden");
+  }
+
   generateBtn.disabled = isLoading;
   generateBtn.textContent = isLoading ? "Generating..." : "Generate plan";
+}
+
+function updateLoadingStep() {
+  const config = loadingSteps[currentLoadingStep % loadingSteps.length];
+  const stepText = document.getElementById("loadingStepText");
+
+  if (stepText) {
+    stepText.textContent = config.text;
+  }
+
+  // Update step indicators
+  document.querySelectorAll(".loading-step").forEach((el, idx) => {
+    el.classList.remove("active", "complete");
+    if (idx < currentLoadingStep) {
+      el.classList.add("complete");
+    } else if (idx === currentLoadingStep) {
+      el.classList.add("active");
+    }
+  });
+
+  currentLoadingStep++;
 }
 
 function showError(message) {

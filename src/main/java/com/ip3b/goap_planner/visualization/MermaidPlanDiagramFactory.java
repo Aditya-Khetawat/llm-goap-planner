@@ -18,6 +18,7 @@ public class MermaidPlanDiagramFactory {
     public String buildFlowchart(String goal, List<PlanStep> steps) {
         String safeGoal = escapeMermaid(goal == null || goal.isBlank() ? "Plan" : goal);
         StringBuilder builder = new StringBuilder();
+        builder.append("%%{init: {'flowchart': {'nodeSpacing': 50, 'rankSpacing': 40, 'padding': '10'}}}%%\n");
         builder.append("flowchart TD\n");
         builder.append("    G[Goal: ").append(safeGoal).append("]\n");
 

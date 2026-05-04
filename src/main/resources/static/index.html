@@ -73,10 +73,25 @@
           </div>
 
           <div id="loadingState" class="state-card hidden">
-            <div class="spinner" aria-hidden="true"></div>
-            <div>
-              <h3>Generating plan</h3>
-              <p>Calling the backend and building the visualization.</p>
+            <div class="loading-header">
+              <div class="spinner" aria-hidden="true"></div>
+              <div>
+                <h3 id="loadingStepText">Generating plan...</h3>
+              </div>
+            </div>
+            <div class="loading-steps">
+              <div class="loading-step" data-step="generating">
+                <span class="step-dot"></span>
+                <span class="step-label">Generating plan</span>
+              </div>
+              <div class="loading-step" data-step="analyzing">
+                <span class="step-dot"></span>
+                <span class="step-label">Analyzing goal</span>
+              </div>
+              <div class="loading-step" data-step="assigning">
+                <span class="step-dot"></span>
+                <span class="step-label">Assigning agents</span>
+              </div>
             </div>
           </div>
 

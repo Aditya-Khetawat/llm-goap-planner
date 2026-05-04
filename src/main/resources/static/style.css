@@ -245,6 +245,85 @@ button:disabled {
   flex: 0 0 auto;
 }
 
+#loadingState {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.loading-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.loading-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  min-height: 1.5rem;
+}
+
+.loading-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  font-family: "Fira Code", "Courier New", monospace;
+  font-size: 0.875rem;
+}
+
+.loading-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  transition: all 0.3s ease;
+}
+
+.loading-step.active {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.loading-step.complete {
+  color: #10b981;
+}
+
+.step-dot {
+  display: inline-flex;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.loading-step.active .step-dot {
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(107, 127, 215, 0.5);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.loading-step.complete .step-dot {
+  background: #10b981;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
 .plan-content {
   display: grid;
   gap: 18px;
