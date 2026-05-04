@@ -16,21 +16,41 @@ This is a Spring Boot-based web application designed to prototype and visualize 
 
 ## Features
 
-### Current Features
+### Current Features ✅
 
-- **REST API Backend** - Spring Boot-based backend for handling planning requests
-- **Web Interface** - Clean, responsive HTML/CSS/JavaScript frontend with live rendering
-- **Goal Input** - Structured form for entering planning goals
-- **Plan Visualization** - Mermaid flowchart and Gantt rendering for generated plans
-- **Loading and Error States** - Clear feedback while the backend responds
-- **Modular Architecture** - Organized package structure for scalability
+- **REST API Backend** - Spring Boot-based backend handling goal-to-plan conversion via POST `/api/plans`
+- **Dynamic Plan Generation** - Goal-sensitive plan generation with three distinct blueprints:
+  - Hackathon planning (event-focused with coordinated tasks)
+  - Mobile app launch (development-focused with code review phases)
+  - Birthday party (celebration-focused with vendor coordination)
+  - Generic fallback for undefined goals
+- **Dual Visualizations** - Mermaid flowchart (TD layout, compact sizing) and Gantt timeline (date-based scheduling)
+- **Agent Assignment Orchestration** - Mock agent orchestration table with:
+  - Step-to-agent mapping
+  - Capability tracking (coding, design, testing, management, etc.)
+  - Status indicators (ready, queued, in-progress, waiting)
+  - Handoff chain visualization
+  - Rationale for each assignment
+- **Multi-Step Loading State** - Animated progress indicator cycling through "Generating plan...", "Analyzing goal...", "Assigning agents..."
+- **Enhanced Error Handling** - Categorized error types:
+  - Validation errors (missing/invalid input)
+  - Network errors (connection failures)
+  - Server errors (5xx responses)
+  - Parse errors (malformed responses)
+  - With error codes, recovery buttons, and color-coded UI
+- **Responsive Design** - Mobile-first layout with breakpoints at 640px, 768px, and 1024px+
+- **Smooth Animations** - CSS keyframes for:
+  - slideInUp, slideInDown, fadeIn, bounce, scaleIn
+  - Applied to plan reveal, loading states, and error cards
+- **Copy-to-Clipboard** - Export Mermaid diagrams, Gantt charts, and agent tables as text
+- **Web Interface** - Clean, gradient-based HTML5/CSS3 frontend with accessibility features
 
 ### Planned Features
 
-- GOAP planning algorithm implementation
-- LLM integration via Ollama for natural language processing
-- Step-by-step action decomposition
-- Interactive plan exploration UI
+- **LLM Integration** - Ollama backend for natural language goal analysis (currently blueprint-based keyword matching)
+- **Extended Test Coverage** - Integration tests for factory methods and edge cases
+- **Plan Persistence** - Database storage for generated plans and history
+- **Interactive Plan Exploration** - Drag-and-drop step reordering, agent reassignment UI
 
 ## Tech Stack
 
@@ -78,26 +98,49 @@ GOAP Planner
 
 ## Current Progress
 
-### Completed
+### Completed ✅
 
-- ✅ Project initialization with Spring Boot and Maven
-- ✅ Package structure established
-- ✅ TestController with `/hello` endpoint
-- ✅ Frontend UI (HTML/CSS/JavaScript)
-- ✅ Project documentation
+- ✅ Spring Boot project initialization and Maven configuration
+- ✅ Package structure with controller, service, model, and visualization layers
+- ✅ REST API endpoint: `POST /api/plans` with structured JSON request/response
+- ✅ Goal-sensitive plan generation via `PlanService` with blueprint pattern:
+  - Keyword-based blueprint selection (hackathon/app/party/generic)
+  - Step generation with titles and details
+  - Agent assignment generation with capabilities and status
+- ✅ Mermaid diagram factory extraction (`MermaidPlanDiagramFactory`):
+  - Compact flowchart rendering (nodeSpacing: 50, rankSpacing: 40)
+  - Gantt timeline with date-based scheduling
+  - Identifier sanitization and escape handling
+- ✅ Multi-step loading indicator with 800ms state transitions and visual progress dots
+- ✅ Enhanced error handling:
+  - Error categorization (validation, network, server, parse, unknown)
+  - Error codes and recovery UI (Retry/Clear buttons)
+  - Color-coded error cards based on error type
+- ✅ Responsive CSS layout:
+  - Mobile breakpoint (640px) with stacked layout
+  - Tablet breakpoint (768px) with optimized spacing
+  - Desktop breakpoint (1024px+) with two-column layout
+  - Fluid typography using CSS clamp()
+- ✅ Smooth animations and transitions:
+  - slideInUp, slideInDown, fadeIn, bounce, scaleIn keyframes
+  - Enhanced button hover/active states with cubic-bezier easing
+  - Plan content reveal animations
+- ✅ Copy-to-clipboard functionality for all artifacts (diagrams, Gantt, agent table)
+- ✅ Unit test for plan service (PlanServiceTest) verifying output divergence
+- ✅ Full integration test suite passing (2/2 tests)
 
-### In Progress
+### In Progress 🔄
 
-- 🔄 GOAP planning algorithm implementation
-- 🔄 Ollama integration setup
-- 🔄 API endpoint development
+- 🔄 LLM integration planning (Ollama setup and prompt engineering)
+- 🔄 Additional unit tests for edge cases and factory methods
 
-### Planned
+### Planned 📋
 
-- 📋 Plan visualization with Mermaid.js
-- 📋 Unit and integration tests
-- 📋 Deployment documentation
-- 📋 Extended API documentation
+- 📋 Ollama LLM backend for semantic goal analysis (replace keyword matching)
+- 📋 Plan history and persistence (database layer)
+- 📋 Interactive plan editor UI
+- 📋 API documentation and OpenAPI spec
+- 📋 Deployment guide (Docker, production configuration)
 
 ## Setup Instructions
 
@@ -113,31 +156,108 @@ GOAP Planner
 
    ```bash
    git clone <repository-url>
-   cd goap-planner
+   cd llm_goap
    ```
 
-2. **Build the project**
+2. **Build the project** (Maven wrapper, no prior Maven install needed)
 
    ```bash
-   mvn clean install
+   # Windows
+   .\mvnw.cmd clean install
+
+   # macOS / Linux
+   ./mvnw clean install
    ```
 
 3. **Run the application**
 
    ```bash
-   mvn spring-boot:run
+   # Windows
+   .\mvnw.cmd spring-boot:run
+
+   # macOS / Linux
+   ./mvnw spring-boot:run
    ```
 
 4. **Access the application**
-   - Web UI: `http://localhost:8080`
-   - API Test: `http://localhost:8080/hello`
-   - Plan API: `http://localhost:8080/api/plans`
+   - Web UI: `http://localhost:8080` (interactive form + plan output)
+   - API: `POST http://localhost:8080/api/plans` (JSON request: `{"goal":"your goal here"}`)
+
+### Sample API Request
+
+```bash
+curl -X POST http://localhost:8080/api/plans \
+  -H "Content-Type: application/json" \
+  -d '{"goal":"Organize a hackathon"}'
+```
+
+### Sample API Response
+
+```json
+{
+  "goal": "Organize a hackathon",
+  "summary": "Execute hackathon event with team coordination and venue setup.",
+  "status": "Ready",
+  "steps": [
+    {
+      "order": 1,
+      "title": "Secure venue and sponsors",
+      "details": "Book event location and finalize sponsorship deals."
+    },
+    {
+      "order": 2,
+      "title": "Coordinate volunteer team",
+      "details": "Recruit and assign volunteer roles for the event."
+    },
+    {
+      "order": 3,
+      "title": "Execute event logistics",
+      "details": "Set up registration, food, tech infrastructure, and judging."
+    }
+  ],
+  "assignments": [
+    {
+      "order": 1,
+      "stepTitle": "Secure venue and sponsors",
+      "agent": "EventManager",
+      "capability": "Event Planning",
+      "status": "ready",
+      "handoffTo": "VolunteerCoordinator",
+      "rationale": "Manages external partnerships and venue logistics."
+    }
+  ],
+  "mermaidDiagram": "flowchart TD\n    G[Goal: Organize a hackathon]\n    S1[Step 1: Secure venue and sponsors]\n    S2[Step 2: Coordinate volunteer team]\n    ...",
+  "ganttDiagram": "gantt\n    title Organize a hackathon timeline\n    dateFormat YYYY-MM-DD\n    section Planning\n    Secure venue and sponsors : s1, 2026-05-04, 3d\n    ...",
+  "generatedAt": "2026-05-04T02:10:23.456Z"
+}
+```
 
 ### API Contract
 
-- `POST /api/plans` accepts a JSON body such as `{"goal":"launch a demo"}`
-- The response includes the goal, summary, execution steps, agent assignments, Mermaid diagram text, Mermaid Gantt text, and a timestamp
-- The frontend uses that response to render the step list, orchestration table, and both visualizations dynamically
+- **Endpoint**: `POST /api/plans`
+- **Request Body**: JSON with `goal` field (string, required)
+- **Response**: JSON with:
+  - `goal` - Echo of input goal
+  - `summary` - High-level plan overview
+  - `status` - Plan status (always "Ready" for now)
+  - `steps` - List of action steps (order, title, details)
+  - `assignments` - Agent assignments with capabilities and status
+  - `mermaidDiagram` - Flowchart in Mermaid syntax (TD layout, compact)
+  - `ganttDiagram` - Timeline in Mermaid Gantt syntax (date-based scheduling)
+  - `generatedAt` - ISO 8601 timestamp
+
+### Frontend Features
+
+- **Goal Input Panel** - Text area for entering planning goals
+- **Multi-Step Loading** - Animated progress indicator (Generating → Analyzing → Assigning)
+- **Plan Output** - Dynamic rendering of:
+  - Goal summary grid (goal, status, timestamp)
+  - Step list with numbered items and details
+  - Agent orchestration table (step, agent, capability, status, handoff, rationale)
+  - Mermaid flowchart (compact, animated rendering)
+  - Mermaid Gantt timeline (date-based, color-coded sections)
+- **Error Handling** - Color-coded error cards with error codes and recovery actions
+- **Copy-to-Clipboard** - Export buttons for all artifacts (flowchart, Gantt, agent table)
 
 ### Project Structure
 
@@ -145,39 +265,68 @@ GOAP Planner
 src/
 ├── main/
 │   ├── java/com/ip3b/goap_planner/
-│   │   ├── GoapPlannerApplication.java    # Main Spring Boot app
+│   │   ├── GoapPlannerApplication.java          # Spring Boot application entry point
 │   │   ├── controller/
+│   │   │   └── PlanningController.java          # REST endpoint: POST /api/plans
 │   │   ├── service/
-│   │   ├── planner/
-│   │   ├── agents/
-│   │   ├── model/
+│   │   │   └── PlanService.java                 # Core planning logic, blueprint selection
 │   │   ├── visualization/
-│   │   └── config/
+│   │   │   └── MermaidPlanDiagramFactory.java   # Flowchart & Gantt generation
+│   │   ├── model/
+│   │   │   ├── PlanRequest.java                 # Request DTO (goal)
+│   │   │   ├── PlanResponse.java                # Response DTO (full plan)
+│   │   │   ├── PlanStep.java                    # Action step record
+│   │   │   ├── PlanAssignment.java              # Agent assignment record
+│   │   │   └── MermaidGanttTask.java            # Gantt task record
+│   │   ├── agents/
+│   │   ├── config/
+│   │   └── planner/
 │   └── resources/
 │       ├── application.properties
 │       └── static/
-│           ├── index.html
-│           ├── style.css
-│           └── app.js
+│           ├── index.html                       # Main UI (responsive, gradient design)
+│           ├── style.css                        # Styling & animations (mobile-first)
+│           └── app.js                           # Frontend logic & API calls
 └── test/
     └── java/com/ip3b/goap_planner/
+        ├── GoapPlannerApplicationTests.java     # Context load test
+        └── service/
+            └── PlanServiceTest.java             # Service logic tests (output divergence)
 ```
+
+### Key Classes
+
+- **PlanService**: Selects blueprint based on goal keywords, generates structured plan response
+- **MermaidPlanDiagramFactory**: Builds Mermaid flowchart and Gantt diagram from plan data
+- **PlanningController**: Exposes `/api/plans` POST endpoint
+- **PlanRequest/Response**: Immutable records for type-safe DTO handling
 
 ### Building and Testing
 
 ```bash
-# Build the project
-mvn clean build
+# Windows
+.\mvnw.cmd clean build
+.\mvnw.cmd test
+.\mvnw.cmd package
 
-# Run tests
-mvn test
+# macOS / Linux
+./mvnw clean build
+./mvnw test
+./mvnw package
 
-# Run specific test class
-mvn test -Dtest=GoapPlannerApplicationTests
+# Run specific test
+.\mvnw.cmd test -Dtest=PlanServiceTest
 
-# Package as JAR
-mvn package
+# Run in development mode with auto-reload
+.\mvnw.cmd spring-boot:run
 ```
+
+### Test Results
+
+Current test suite: **2/2 passing**
+
+- `GoapPlannerApplicationTests` - Application context loads successfully
+- `PlanServiceTest` - Verifies plan generation differs across three sample inputs (hackathon, app, party)
 
 ### Configuration
 
