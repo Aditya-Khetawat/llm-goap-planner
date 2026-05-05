@@ -19,10 +19,12 @@ public class PlanService {
 
     private final MermaidPlanDiagramFactory diagramFactory;
     private final LLMPlanGenerator llmPlanGenerator;
+    private final PlannerClient plannerClient;
 
-    public PlanService(MermaidPlanDiagramFactory diagramFactory, LLMPlanGenerator llmPlanGenerator) {
+    public PlanService(MermaidPlanDiagramFactory diagramFactory, LLMPlanGenerator llmPlanGenerator, PlannerClient plannerClient) {
         this.diagramFactory = diagramFactory;
         this.llmPlanGenerator = llmPlanGenerator;
+        this.plannerClient = plannerClient;
     }
 
     public record PlanWithSource(String source, PlanResponse response) {}
@@ -30,7 +32,17 @@ public class PlanService {
     public PlanWithSource generatePlanWithSource(PlanRequest request) {
         String goal = normalizeGoal(request == null ? null : request.goal());
 
-        // Try LLM-based generation first
+        // Try Python planner API first
+        try {
+            PlanResponse plannerResp = plannerClient.generate(goal);
+            if (plannerResp != null) {
+                return new PlanWithSource("PLANNER", plannerResp);
+            }
+        } catch (Exception e) {
+            System.err.println("PlanService: planner client error: " + e.getMessage());
+        }
+
+        // Try LLM-based generation as fallback
         LLMPlanResult llmResult = llmPlanGenerator.generatePlanWithLLM(goal);
         if (llmResult != null) {
                 PlanResponse resp = new PlanResponse(

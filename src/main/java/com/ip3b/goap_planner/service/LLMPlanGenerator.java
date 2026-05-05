@@ -18,12 +18,10 @@ import com.ip3b.goap_planner.visualization.MermaidPlanDiagramFactory;
 @Service
 public class LLMPlanGenerator {
 
-    private final OllamaClient ollamaClient;
     private final MermaidPlanDiagramFactory diagramFactory;
     private static final ObjectMapper mapper = new ObjectMapper();
 
-    public LLMPlanGenerator(OllamaClient ollamaClient, MermaidPlanDiagramFactory diagramFactory) {
-        this.ollamaClient = ollamaClient;
+    public LLMPlanGenerator(MermaidPlanDiagramFactory diagramFactory) {
         this.diagramFactory = diagramFactory;
     }
 
@@ -31,32 +29,8 @@ public class LLMPlanGenerator {
      * Generate a plan using Llama3 LLM
      */
     public LLMPlanResult generatePlanWithLLM(String goal) {
-        boolean available = ollamaClient.isAvailable();
-        System.out.println("LLMPlanGenerator: Ollama availability check = " + available);
-        if (!available) {
-            System.out.println("LLMPlanGenerator: Ollama not available, falling back to blueprint");
-            return null; // Fall back to blueprint-based planning
-        }
-
-        String prompt = buildPlanningPrompt(goal);
-        String response = ollamaClient.generate(prompt);
-        System.out.println("LLMPlanGenerator: Ollama response length = " + (response == null ? "null" : response.length()));
-
-        if (response == null || response.isBlank()) {
-            System.out.println("LLMPlanGenerator: Ollama response was null or blank, falling back to blueprint");
-            return null;
-        }
-
-        LLMPlanResult result = parseAndValidatePlan(response, goal);
-        boolean isValid = result != null && isValidPlan(result);
-        System.out.println("LLMPlanGenerator: Parse result valid = " + isValid);
-        
-        if (isValid) {
-            System.out.println("LLMPlanGenerator: LLM plan accepted, returning result");
-            return result;
-        }
-        
-        System.out.println("LLMPlanGenerator: LLM plan invalid or parse failed, falling back to blueprint");
+        // Java-side LLM integration removed. Use the Python planner API instead.
+        System.out.println("LLMPlanGenerator: Java Ollama integration removed; skipping LLM path.");
         return null;
     }
 
