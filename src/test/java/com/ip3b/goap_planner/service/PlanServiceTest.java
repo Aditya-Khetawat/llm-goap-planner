@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import com.ip3b.goap_planner.model.PlanRequest;
 import com.ip3b.goap_planner.model.PlanResponse;
@@ -12,10 +13,15 @@ import com.ip3b.goap_planner.visualization.MermaidPlanDiagramFactory;
 
 class PlanServiceTest {
 
-    private final PlanService planService = new PlanService(new MermaidPlanDiagramFactory());
+    private final MermaidPlanDiagramFactory diagramFactory = new MermaidPlanDiagramFactory();
+    private final LLMPlanGenerator llmGenerator = Mockito.mock(LLMPlanGenerator.class);
+    private final PlanService planService = new PlanService(diagramFactory, llmGenerator);
 
     @Test
     void generatesDifferentPlansForDifferentGoals() {
+        // Mock returns null to fall back to blueprint-based planning
+        Mockito.when(llmGenerator.generatePlanWithLLM(Mockito.anyString())).thenReturn(null);
+        
         PlanResponse hackathon = planService.generatePlan(new PlanRequest("Organize a hackathon"));
         PlanResponse appLaunch = planService.generatePlan(new PlanRequest("Launch a mobile app"));
         PlanResponse birthdayParty = planService.generatePlan(new PlanRequest("Plan a birthday party"));
