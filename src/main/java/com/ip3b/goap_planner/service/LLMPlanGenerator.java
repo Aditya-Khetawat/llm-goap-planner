@@ -90,7 +90,7 @@ public class LLMPlanGenerator {
                 String details = (String) step.get("details");
 
                 if (title != null && !title.isBlank()) {
-                    steps.add(new PlanStep(order, title, details != null ? details : ""));
+                    steps.add(new PlanStep(order, title, details != null ? details : "", null, null));
                 }
             }
 
@@ -222,6 +222,8 @@ public class LLMPlanGenerator {
         public List<MermaidGanttTask> ganttTasks;
         public String mermaidDiagram;
         public String ganttDiagram;
+        public String classification;
+        public List<Map<String, Object>> trace;
 
         public LLMPlanResult(String goal, String summary, List<PlanStep> steps,
                 List<PlanAssignment> assignments, List<MermaidGanttTask> ganttTasks,
@@ -233,6 +235,8 @@ public class LLMPlanGenerator {
             this.ganttTasks = ganttTasks;
             this.mermaidDiagram = mermaidDiagram;
             this.ganttDiagram = ganttDiagram;
+            this.classification = "llm_generated";
+            this.trace = new ArrayList<>();
         }
     }
 }

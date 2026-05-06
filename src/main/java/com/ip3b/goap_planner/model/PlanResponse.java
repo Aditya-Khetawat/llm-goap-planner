@@ -2,6 +2,7 @@ package com.ip3b.goap_planner.model;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 public record PlanResponse(
         String goal,
@@ -12,5 +13,7 @@ public record PlanResponse(
         String mermaidDiagram,
         String ganttDiagram,
         String source,
+        String classification,
+        List<Map<String, Object>> trace,
         Instant generatedAt) {
 }

@@ -31,10 +31,11 @@ public class PlanService {
 
     public PlanWithSource generatePlanWithSource(PlanRequest request) {
         String goal = normalizeGoal(request == null ? null : request.goal());
+        List<String> tools = request != null ? request.tools() : List.of();
 
-        // Try Python planner API first
+        // Try internal planner API first
         try {
-            PlanResponse plannerResp = plannerClient.generate(goal);
+            PlanResponse plannerResp = plannerClient.generate(goal, tools);
             if (plannerResp != null) {
                 return new PlanWithSource("PLANNER", plannerResp);
             }
@@ -54,6 +55,8 @@ public class PlanService {
                     llmResult.mermaidDiagram,
                     llmResult.ganttDiagram,
                     "LLM",
+                    llmResult.classification,
+                    llmResult.trace,
                     Instant.now());
 
                 return new PlanWithSource("LLM", resp);
@@ -72,6 +75,8 @@ public class PlanService {
             blueprint.mermaidDiagram(),
             blueprint.ganttDiagram(),
             "BLUEPRINT",
+            "static_blueprint",
+            List.of(),
             Instant.now());
 
         return new PlanWithSource("BLUEPRINT", resp);
@@ -107,10 +112,10 @@ public class PlanService {
 
     private PlanBlueprint buildHackathonBlueprint(String goal) {
         List<PlanStep> steps = Arrays.asList(
-                new PlanStep(1, "Define challenge scope", "Pick a theme, success criteria, and team roles before coding starts."),
-                new PlanStep(2, "Split into workstreams", "Assign prototype, pitch, and demo responsibilities so progress can happen in parallel."),
-                new PlanStep(3, "Build a demoable core", "Ship the smallest feature set that clearly proves the idea."),
-                new PlanStep(4, "Polish the pitch and fallback plan", "Prepare a crisp presentation, backup screenshots, and a stable demo path."));
+                new PlanStep(1, "Define challenge scope", "Pick a theme, success criteria, and team roles before coding starts.", "ResearchAgent", null),
+                new PlanStep(2, "Split into workstreams", "Assign prototype, pitch, and demo responsibilities so progress can happen in parallel.", "CoordinationAgent", null),
+                new PlanStep(3, "Build a demoable core", "Ship the smallest feature set that clearly proves the idea.", "BuildAgent", null),
+                new PlanStep(4, "Polish the pitch and fallback plan", "Prepare a crisp presentation, backup screenshots, and a stable demo path.", "PitchAgent", null));
 
         List<PlanAssignment> assignments = Arrays.asList(
                 new PlanAssignment(1, "Define challenge scope", "ResearchAgent", "Research and analysis", "Ready", "CoordinationAgent", "Collects the brief, constraints, and judging criteria."),
@@ -130,11 +135,11 @@ public class PlanService {
 
     private PlanBlueprint buildMobileAppBlueprint(String goal) {
         List<PlanStep> steps = Arrays.asList(
-                new PlanStep(1, "Clarify product promise", "Define the user problem, target audience, and the one thing the app must do well."),
-                new PlanStep(2, "Map the first release", "Choose a lean MVP, the onboarding path, and the analytics events to track."),
-                new PlanStep(3, "Build and validate flows", "Implement the core screens, connect the backend, and test the happy path on real devices."),
-                new PlanStep(4, "Prepare launch assets", "Finish store copy, screenshots, release notes, and the rollout checklist."),
-                new PlanStep(5, "Monitor post-launch signals", "Watch crashes, reviews, and retention to decide the first iteration."));
+                new PlanStep(1, "Clarify product promise", "Define the user problem, target audience, and the one thing the app must do well.", "ProductAgent", null),
+                new PlanStep(2, "Map the first release", "Choose a lean MVP, the onboarding path, and the analytics events to track.", "DesignAgent", null),
+                new PlanStep(3, "Build and validate flows", "Implement the core screens, connect the backend, and test the happy path on real devices.", "IntegrationAgent", null),
+                new PlanStep(4, "Prepare launch assets", "Finish store copy, screenshots, release notes, and the rollout checklist.", "LaunchAgent", null),
+                new PlanStep(5, "Monitor post-launch signals", "Watch crashes, reviews, and retention to decide the first iteration.", "MetricsAgent", null));
 
         List<PlanAssignment> assignments = Arrays.asList(
                 new PlanAssignment(1, "Clarify product promise", "ProductAgent", "Product framing", "Ready", "DesignAgent", "Frames the user problem and MVP outcome."),
@@ -156,10 +161,10 @@ public class PlanService {
 
     private PlanBlueprint buildBirthdayPartyBlueprint(String goal) {
         List<PlanStep> steps = Arrays.asList(
-                new PlanStep(1, "Lock the guest list", "Confirm who is invited, how many people are coming, and any special needs."),
-                new PlanStep(2, "Reserve the venue and timing", "Choose the space, set the date, and make sure arrival and setup windows are realistic."),
-                new PlanStep(3, "Plan food, cake, and activities", "Coordinate the menu, order the cake, and pick a few easy crowd-pleasers."),
-                new PlanStep(4, "Send reminders and prep supplies", "Confirm RSVPs, buy decorations, and pack the items needed on the day."));
+                new PlanStep(1, "Lock the guest list", "Confirm who is invited, how many people are coming, and any special needs.", "CalendarAgent", null),
+                new PlanStep(2, "Reserve the venue and timing", "Choose the space, set the date, and make sure arrival and setup windows are realistic.", "VenueAgent", null),
+                new PlanStep(3, "Plan food, cake, and activities", "Coordinate the menu, order the cake, and pick a few easy crowd-pleasers.", "EventsAgent", null),
+                new PlanStep(4, "Send reminders and prep supplies", "Confirm RSVPs, buy decorations, and pack the items needed on the day.", "MailAgent", null));
 
         List<PlanAssignment> assignments = Arrays.asList(
                 new PlanAssignment(1, "Lock the guest list", "CalendarAgent", "Scheduling and RSVP tracking", "Ready", "VenueAgent", "Tracks RSVPs, timing, and guest constraints."),
@@ -179,10 +184,10 @@ public class PlanService {
 
     private PlanBlueprint buildGenericBlueprint(String goal) {
         List<PlanStep> steps = Arrays.asList(
-                new PlanStep(1, "Define the outcome", "Turn the goal into one measurable result that can be checked later."),
-                new PlanStep(2, "List constraints and inputs", "Identify the people, tools, time, and dependencies that shape the plan."),
-                new PlanStep(3, "Sequence the actions", "Order the work from prerequisites to execution in the smallest viable chain."),
-                new PlanStep(4, "Review and adapt", "Compare the result with the goal and decide the next adjustment."));
+                new PlanStep(1, "Define the outcome", "Turn the goal into one measurable result that can be checked later.", "PlannerAgent", null),
+                new PlanStep(2, "List constraints and inputs", "Identify the people, tools, time, and dependencies that shape the plan.", "AnalyzerAgent", null),
+                new PlanStep(3, "Sequence the actions", "Order the work from prerequisites to execution in the smallest viable chain.", "OrchestratorAgent", null),
+                new PlanStep(4, "Review and adapt", "Compare the result with the goal and decide the next adjustment.", "ReviewAgent", null));
 
         List<PlanAssignment> assignments = Arrays.asList(
                 new PlanAssignment(1, "Define the outcome", "PlannerAgent", "Goal decomposition", "Ready", "AnalyzerAgent", "Turns the goal into a checkable result."),

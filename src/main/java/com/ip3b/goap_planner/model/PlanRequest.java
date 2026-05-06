@@ -1,4 +1,6 @@
 package com.ip3b.goap_planner.model;
 
-public record PlanRequest(String goal) {
+import java.util.List;
+
+public record PlanRequest(String goal, List<String> tools) {
 }

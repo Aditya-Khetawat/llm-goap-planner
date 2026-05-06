@@ -44,8 +44,34 @@
             <textarea
               id="goalInput"
               placeholder="Example: deliver a weekly project demo with a stable build and notes"
-              rows="8"
+              rows="6"
             ></textarea>
+
+            <div class="tools-selector">
+              <p>Available Agents</p>
+              <div class="tools-grid">
+                <label class="tool-option selected">
+                  <input type="checkbox" name="tool" value="SearchAgent" checked>
+                  <span>SearchAgent</span>
+                </label>
+                <label class="tool-option selected">
+                  <input type="checkbox" name="tool" value="CalendarAgent" checked>
+                  <span>CalendarAgent</span>
+                </label>
+                <label class="tool-option selected">
+                  <input type="checkbox" name="tool" value="BudgetAgent" checked>
+                  <span>BudgetAgent</span>
+                </label>
+                <label class="tool-option selected">
+                  <input type="checkbox" name="tool" value="InviteAgent" checked>
+                  <span>InviteAgent</span>
+                </label>
+                <label class="tool-option selected">
+                  <input type="checkbox" name="tool" value="FoodAgent" checked>
+                  <span>FoodAgent</span>
+                </label>
+              </div>
+            </div>
 
             <div class="form-actions">
               <button id="generateBtn" type="submit">Generate plan</button>
@@ -159,6 +185,7 @@
             <button class="tab-btn" data-tab="agents">
               Agent Orchestration
             </button>
+            <button class="tab-btn" data-tab="trace">Execution Trace</button>
           </div>
         </div>
 
@@ -249,6 +276,24 @@
                   </thead>
                   <tbody id="assignmentRows"></tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Trace Tab -->
+          <div class="tab-pane" id="tab-trace">
+            <div class="trace-section">
+              <div class="diagram-header">
+                <h3>System Trace</h3>
+                <button id="copyTraceBtn" class="secondary-button">
+                  Copy log
+                </button>
+              </div>
+              <p class="section-intro">
+                Deterministic logs of the GOAP solver's state transitions and agent handoffs.
+              </p>
+              <div id="traceLog" class="trace-log">
+                <div class="empty-cell">No trace data available.</div>
               </div>
             </div>
           </div>
