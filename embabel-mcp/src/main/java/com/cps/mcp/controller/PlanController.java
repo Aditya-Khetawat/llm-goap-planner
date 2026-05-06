@@ -1,4 +1,4 @@
-package com.cps.mcp.embabel_mcp.controller;
+package com.cps.mcp.controller;
 
 import org.springframework.web.bind.annotation.*;
 import java.util.*;

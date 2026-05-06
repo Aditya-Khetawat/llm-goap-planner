@@ -1,4 +1,4 @@
-package com.cps.mcp.embabel_mcp;
+package com.cps.mcp;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

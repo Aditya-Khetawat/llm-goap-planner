@@ -22,7 +22,7 @@ import com.ip3b.goap_planner.model.PlanStep;
 @Component
 public class PlannerClient {
 
-    private static final String PLANNER_URL = "http://127.0.0.1:8000/plan";
+    private static final String PLANNER_URL = "http://127.0.0.1:9090/plan";
     private static final ObjectMapper mapper = new ObjectMapper();
 
     /**
@@ -37,7 +37,7 @@ public class PlannerClient {
             conn.setRequestProperty("Content-Type", "application/json");
             conn.setDoOutput(true);
             conn.setConnectTimeout(5000);
-            conn.setReadTimeout(120000);
+            conn.setReadTimeout(300000);
 
             String payload = mapper.writeValueAsString(Map.of("goal", goal, "tools", List.of()));
             try (OutputStream os = conn.getOutputStream()) {
