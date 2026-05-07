@@ -221,11 +221,20 @@
           <div class="tab-pane" id="tab-flowchart">
             <div class="diagram-section">
               <div class="diagram-header">
-                <h3>Process Flowchart</h3>
+                <div class="header-group">
+                  <h3>Orchestration Graph</h3>
+                  <div class="status-indicator">
+                    <span class="status-dot status-active"></span>
+                    <span class="status-text">Dynamic Plan</span>
+                  </div>
+                </div>
                 <button id="copyDiagramBtn" class="secondary-button">
                   Copy diagram
                 </button>
               </div>
+              <p class="section-intro">
+                High-level process flow showing the decision nodes and action sequence.
+              </p>
               <div id="diagramContainer" class="diagram-container"></div>
             </div>
           </div>

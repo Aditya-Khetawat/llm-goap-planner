@@ -404,7 +404,7 @@ function renderPlan(plan) {
   updateMetrics(plan);
 
   latestDiagram = plan.mermaidDiagram || "";
-  renderDiagram(diagramContainer, latestDiagram);
+  renderFlowchart(diagramContainer, latestDiagram, plan.steps || []);
 
   latestGantt = plan.ganttDiagram || "";
   renderGantt(ganttContainer, latestGantt, plan.steps ? plan.steps.length : 4);
@@ -473,32 +473,292 @@ function renderAssignments(container, assignments) {
   });
 }
 
-async function renderDiagram(container, diagramCode) {
+// ─── Custom Orchestration Graph Renderer ────────────────────────────────────
+// Renders a high-fidelity, interactive orchestration graph.
+// Enriches basic Mermaid syntax with real-time plan metadata (Agents, Status, Icons).
+
+function parseFlowchartSyntax(mermaidCode) {
+  const lines = (mermaidCode || "").split("\n").map(l => l.trim()).filter(Boolean);
+  const nodes = new Map();
+  const edges = [];
+
+  for (const line of lines) {
+    if (line.startsWith("graph") || line.startsWith("classDef")) continue;
+
+    // Links: id1 --> id2 or id1-->id2
+    if (line.includes("-->")) {
+      const parts = line.split("-->").map(p => p.trim());
+      if (parts.length >= 2) {
+        // Handle possible labels on arrows (ignored for now)
+        edges.push({ from: parts[0], to: parts[1].split("|")[0].trim() });
+      }
+      continue;
+    }
+
+    // Robust Node Match: id["Label"] or id(("Label")) or id(Label) or id[Label]
+    // Regex breakdown: ID, then bracket start, then optional quote, then Label content, then optional quote, then bracket end
+    const nodeMatch = line.match(/^([a-zA-Z0-9_-]+)\s*(?:\[|{|\(|\(\()(?:"?)(.*?)(?:"?)(?:\]|}|\)|\)\))$/);
+    if (nodeMatch) {
+      nodes.set(nodeMatch[1], { id: nodeMatch[1], label: nodeMatch[2] });
+    }
+  }
+
+  // Fallback for nodes that are only mentioned in edges
+  edges.forEach(e => {
+    if (!nodes.has(e.from)) nodes.set(e.from, { id: e.from, label: e.from });
+    if (!nodes.has(e.to)) nodes.set(e.to, { id: e.to, label: e.to });
+  });
+
+  // Calculate levels (ranks) using BFS for stable layout
+  const levels = new Map();
+  const adj = new Map();
+  const inDegree = new Map();
+  
+  nodes.forEach((_, id) => {
+    adj.set(id, []);
+    inDegree.set(id, 0);
+  });
+
+  edges.forEach(e => {
+    adj.get(e.from).push(e.to);
+    inDegree.set(e.to, (inDegree.get(e.to) || 0) + 1);
+  });
+
+  const queue = [];
+  nodes.forEach((_, id) => {
+    if (inDegree.get(id) === 0) {
+      queue.push({ id, level: 0 });
+      levels.set(id, 0);
+    }
+  });
+
+  while (queue.length > 0) {
+    const { id, level } = queue.shift();
+    (adj.get(id) || []).forEach(neighbor => {
+      const nextLevel = Math.max(levels.get(neighbor) || 0, level + 1);
+      levels.set(neighbor, nextLevel);
+      queue.push({ id: neighbor, level: nextLevel });
+    });
+  }
+
+  // Handle cycles or disconnected components by assigning level 0 if missing
+  nodes.forEach((_, id) => {
+    if (!levels.has(id)) levels.set(id, 0);
+  });
+
+  return { nodes, edges, levels };
+}
+
+async function renderFlowchart(container, diagramCode, steps = []) {
   if (!diagramCode) {
-    container.innerHTML =
-      "<p class='diagram-fallback'>No diagram code was generated. Please try again.</p>";
+    container.innerHTML = "<p class='diagram-fallback'>No workflow was generated.</p>";
     return;
   }
 
-  if (!window.mermaid) {
+  const { nodes, edges, levels } = parseFlowchartSyntax(diagramCode);
+  if (!nodes.size) {
     container.innerHTML = `<pre class="diagram-fallback">${escapeHtml(diagramCode)}</pre>`;
     return;
   }
 
-  container.innerHTML =
-    '<div class="diagram-loading"><div class="spinner"></div><p>Rendering diagram...</p></div>';
+  // Enrich nodes with step metadata
+  nodes.forEach((node, id) => {
+    const step = steps.find(s => `step${s.order}` === id);
+    if (step) {
+      node.agent = step.agent;
+      node.status = step.output ? "done" : "queued";
+      node.details = step.details;
+    }
+  });
 
-  try {
-    const diagramId = `diagram-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const { svg } = await window.mermaid.render(diagramId, diagramCode);
-    container.innerHTML = `<div class="diagram-wrapper">${svg}</div>`;
-  } catch (error) {
-    console.error("Mermaid rendering error:", error);
-    container.innerHTML = `<div class="diagram-error">
-      <p><strong>Diagram rendering failed:</strong></p>
-      <pre class="diagram-fallback">${escapeHtml(diagramCode)}</pre>
-    </div>`;
-  }
+  // Layout Constants
+  const NODE_W = 240;
+  const NODE_H = 80;
+  const LEVEL_H = 160;
+  const GAP_X = 80;
+  const PADDING = 100;
+
+  const nodesByLevel = [];
+  levels.forEach((level, id) => {
+    if (!nodesByLevel[level]) nodesByLevel[level] = [];
+    nodesByLevel[level].push(id);
+  });
+
+  const maxLevelWidth = Math.max(...nodesByLevel.map(l => l.length)) * (NODE_W + GAP_X);
+  const totalW = Math.max(900, maxLevelWidth + PADDING * 2);
+  const totalH = nodesByLevel.length * LEVEL_H + PADDING;
+
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("width", totalW);
+  svg.setAttribute("height", totalH);
+  svg.setAttribute("class", "orchestration-graph");
+  
+  // Calculate coordinates
+  const coords = new Map();
+  nodesByLevel.forEach((levelNodes, level) => {
+    const levelWidth = levelNodes.length * NODE_W + (levelNodes.length - 1) * GAP_X;
+    const startX = (totalW - levelWidth) / 2;
+    levelNodes.forEach((id, i) => {
+      coords.set(id, {
+        x: startX + i * (NODE_W + GAP_X),
+        y: PADDING + level * LEVEL_H
+      });
+    });
+  });
+
+  // Layers
+  const defs = document.createElementNS(svgNS, "defs");
+  const edgeLayer = document.createElementNS(svgNS, "g");
+  const nodeLayer = document.createElementNS(svgNS, "g");
+
+  // Arrowhead and Glow Defs
+  const marker = document.createElementNS(svgNS, "marker");
+  marker.setAttribute("id", "arrowhead-rich");
+  marker.setAttribute("markerWidth", "10");
+  marker.setAttribute("markerHeight", "7");
+  marker.setAttribute("refX", "9");
+  marker.setAttribute("refY", "3.5");
+  marker.setAttribute("orient", "auto");
+  const poly = document.createElementNS(svgNS, "polygon");
+  poly.setAttribute("points", "0 0, 10 3.5, 0 7");
+  poly.setAttribute("fill", "#94a3b8");
+  marker.appendChild(poly);
+  defs.appendChild(marker);
+  svg.appendChild(defs);
+
+  // Draw Edges
+  edges.forEach((edge, i) => {
+    const from = coords.get(edge.from);
+    const to = coords.get(edge.to);
+    if (!from || !to) return;
+
+    const x1 = from.x + NODE_W / 2;
+    const y1 = from.y + NODE_H;
+    const x2 = to.x + NODE_W / 2;
+    const y2 = to.y;
+
+    const group = document.createElementNS(svgNS, "g");
+    group.setAttribute("class", `edge-group edge-from-${edge.from} edge-to-${edge.to}`);
+
+    const path = document.createElementNS(svgNS, "path");
+    const cp = (y2 - y1) / 2.5;
+    const d = `M ${x1} ${y1} C ${x1} ${y1 + cp}, ${x2} ${y2 - cp}, ${x2} ${y2}`;
+    
+    path.setAttribute("d", d);
+    path.setAttribute("class", "flow-path");
+    path.setAttribute("marker-end", "url(#arrowhead-rich)");
+    
+    // Pulse animation path (hidden by default)
+    const pulse = path.cloneNode();
+    pulse.setAttribute("class", "flow-pulse");
+    
+    group.appendChild(path);
+    group.appendChild(pulse);
+    edgeLayer.appendChild(group);
+  });
+
+  // Draw Nodes
+  nodes.forEach((node, id) => {
+    const { x, y } = coords.get(id);
+    const isSpecial = id === "START" || id === "END";
+    const agentColor = node.agent ? (GANTT_COLORS[Array.from(new Set(steps.map(s=>s.agent))).indexOf(node.agent) % GANTT_COLORS.length] || GANTT_COLORS[0]) : { bar: "#64748b", text: "#475569" };
+
+    const group = document.createElementNS(svgNS, "g");
+    group.setAttribute("class", `node-group node-${id} ${isSpecial ? "special" : ""}`);
+    group.setAttribute("tabindex", "0");
+
+    if (isSpecial) {
+      const circle = document.createElementNS(svgNS, "circle");
+      circle.setAttribute("cx", x + NODE_W / 2);
+      circle.setAttribute("cy", y + NODE_H / 2);
+      circle.setAttribute("r", 32);
+      circle.setAttribute("class", "special-node-bg");
+      group.appendChild(circle);
+
+      const label = document.createElementNS(svgNS, "text");
+      label.setAttribute("x", x + NODE_W / 2);
+      label.setAttribute("y", y + NODE_H / 2 + 5);
+      label.setAttribute("class", "special-node-label");
+      label.textContent = id;
+      group.appendChild(label);
+    } else {
+      const rect = document.createElementNS(svgNS, "rect");
+      rect.setAttribute("x", x);
+      rect.setAttribute("y", y);
+      rect.setAttribute("width", NODE_W);
+      rect.setAttribute("height", NODE_H);
+      rect.setAttribute("rx", "16");
+      rect.setAttribute("class", "node-card");
+      group.appendChild(rect);
+
+      // Agent Badge
+      const badge = document.createElementNS(svgNS, "rect");
+      badge.setAttribute("x", x + 16);
+      badge.setAttribute("y", y + 16);
+      badge.setAttribute("width", 24);
+      badge.setAttribute("height", 24);
+      badge.setAttribute("rx", "6");
+      badge.setAttribute("fill", agentColor.bar);
+      group.appendChild(badge);
+
+      const badgeText = document.createElementNS(svgNS, "text");
+      badgeText.setAttribute("x", x + 28);
+      badgeText.setAttribute("y", y + 33);
+      badgeText.setAttribute("class", "badge-text");
+      badgeText.textContent = (node.agent || "A")[0].toUpperCase();
+      group.appendChild(badgeText);
+
+      // Title
+      const title = document.createElementNS(svgNS, "text");
+      title.setAttribute("x", x + 50);
+      title.setAttribute("y", y + 33);
+      title.setAttribute("class", "node-title");
+      title.textContent = node.agent || "Orchestrator";
+      group.appendChild(title);
+
+      // Label (Description)
+      const label = document.createElementNS(svgNS, "text");
+      label.setAttribute("x", x + 16);
+      label.setAttribute("y", y + 58);
+      label.setAttribute("class", "node-desc");
+      let desc = node.label;
+      if (desc.length > 32) desc = desc.substring(0, 29) + "...";
+      label.textContent = desc;
+      group.appendChild(label);
+
+      // Status Indicator
+      const status = document.createElementNS(svgNS, "circle");
+      status.setAttribute("cx", x + NODE_W - 20);
+      status.setAttribute("cy", y + 20);
+      status.setAttribute("r", 4);
+      status.setAttribute("class", `status-dot status-${node.status || "queued"}`);
+      group.appendChild(status);
+    }
+
+    // Hover Interaction
+    group.onmouseenter = () => {
+      svg.querySelectorAll(`.edge-from-${id}, .edge-to-${id}`).forEach(el => {
+        el.classList.add("active");
+      });
+    };
+    group.onmouseleave = () => {
+      svg.querySelectorAll(".edge-group").forEach(el => {
+        el.classList.remove("active");
+      });
+    };
+
+    nodeLayer.appendChild(group);
+  });
+
+  svg.appendChild(edgeLayer);
+  svg.appendChild(nodeLayer);
+
+  container.innerHTML = "";
+  const wrapper = document.createElement("div");
+  wrapper.className = "gantt-wrapper"; // Reuse scroll styling
+  wrapper.appendChild(svg);
+  container.appendChild(wrapper);
 }
 
 // ─── Custom Timeline Renderer ────────────────────────────────────────────────

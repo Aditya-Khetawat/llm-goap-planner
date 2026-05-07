@@ -664,14 +664,12 @@ button:disabled {
   overflow-x: auto;
   overflow-y: hidden;
   position: relative;
-  min-height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  min-height: 400px;
   background: #fafbfc;
   border-radius: 16px;
-  padding: 24px;
+  padding: 0;
   border: 1px solid var(--border);
+  display: block; /* Removed centered flex to allow scroll */
 }
 
 .diagram-container svg {
@@ -741,6 +739,111 @@ button:disabled {
 
 .gantt-wrapper::-webkit-scrollbar-thumb:hover {
   background: #cbd5e1;
+}
+
+/* ── Orchestration Graph Styles ── */
+.orchestration-graph {
+  filter: drop-shadow(0 10px 30px rgba(0,0,0,0.04));
+  user-select: none;
+}
+
+.node-card {
+  fill: #ffffff;
+  stroke: #e2e8f0;
+  stroke-width: 1.5;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.node-group:hover .node-card {
+  stroke: var(--accent);
+  filter: drop-shadow(0 20px 25px rgba(0,0,0,0.1));
+  transform: translateY(-4px);
+}
+
+.badge-text {
+  fill: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.node-title {
+  fill: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+
+.node-desc {
+  fill: #1e293b;
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.status-dot {
+  stroke-width: 2;
+  stroke: #fff;
+}
+
+.status-done { fill: #10b981; }
+.status-active { fill: #3b82f6; }
+.status-queued { fill: #94a3b8; }
+
+.special-node-bg {
+  fill: #f8fafc;
+  stroke: #cbd5e1;
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
+}
+
+.node-group.special:hover .special-node-bg {
+  stroke: var(--accent);
+  fill: #eff6ff;
+}
+
+.special-node-label {
+  fill: #475569;
+  font-size: 10px;
+  font-weight: 800;
+  text-anchor: middle;
+  text-transform: uppercase;
+}
+
+.flow-path {
+  fill: none;
+  stroke: #e2e8f0;
+  stroke-width: 2.5;
+  transition: all 0.3s ease;
+}
+
+.edge-group.active .flow-path {
+  stroke: var(--accent);
+  stroke-width: 3.5;
+}
+
+.flow-pulse {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-dasharray: 10 100;
+  stroke-dashoffset: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.edge-group.active .flow-pulse {
+  opacity: 0.6;
+  animation: pulse-flow 2s linear infinite;
+}
+
+@keyframes pulse-flow {
+  from { stroke-dashoffset: 110; }
+  to { stroke-dashoffset: 0; }
 }
 
 .diagram-loading {
