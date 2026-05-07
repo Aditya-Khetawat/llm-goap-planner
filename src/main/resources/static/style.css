@@ -870,7 +870,7 @@ button:disabled {
 
 .diagram-container {
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
   position: relative;
   min-height: 400px;
   background: var(--bg);

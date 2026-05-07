@@ -876,8 +876,16 @@ async function renderGantt(container, diagramCode) {
   const BAR_Y_OFF = (ROW_H - BAR_H) / 2;
   const HEADER_H = 80;
   
-  const maxDay = Math.max(...visibleTasks.map(t => t.startDay + t.duration), 0) + 2;
-  const totalW = Math.max(800, SIDEBAR_W + (maxDay * DAY_W) + 300);
+  // Calculate the furthest point (last task end + estimated label width)
+  const lastTaskEndDay = Math.max(...visibleTasks.map(t => t.startDay + t.duration), 0);
+  const maxLabelLength = Math.max(...visibleTasks.map(t => t.label.length), 0);
+  const labelWidthEstimate = maxLabelLength * 8.5; // Rough estimate of 8.5px per char
+  
+  // maxDay for the grid should cover at least the tasks
+  const maxDay = lastTaskEndDay + 2; 
+  
+  // totalW must accommodate the sidebar, the days, the labels, and right-side padding
+  const totalW = Math.max(800, SIDEBAR_W + (maxDay * DAY_W) + labelWidthEstimate + 200);
 
   const svgNS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(svgNS, "svg");
@@ -896,8 +904,10 @@ async function renderGantt(container, diagramCode) {
     currentY += agentTasks.length * ROW_H;
   });
 
-  const fullHeight = Math.max(400, currentY + 40);
+  // Add significant bottom padding (100px) to ensure no clipping and room for scroll
+  const fullHeight = Math.max(400, currentY + 100);
   svg.setAttribute("height", fullHeight);
+  svg.style.display = "block"; // Ensure no baseline spacing issues
 
   const gridLayer = document.createElementNS(svgNS, "g");
   const connectionLayer = document.createElementNS(svgNS, "g");
@@ -915,15 +925,16 @@ async function renderGantt(container, diagramCode) {
       line.setAttribute("x1", x);
       line.setAttribute("y1", HEADER_H);
       line.setAttribute("x2", x);
-      line.setAttribute("y2", fullHeight - 40);
+      line.setAttribute("y2", fullHeight);
       line.setAttribute("stroke", "var(--border)");
       gridLayer.appendChild(line);
 
       const date = new Date(baseDate);
       date.setDate(date.getDate() + d);
       const text = document.createElementNS(svgNS, "text");
-      text.setAttribute("x", x);
-      text.setAttribute("y", 50);
+      // Center the date label within the day column (x to x + DAY_W)
+      text.setAttribute("x", x + DAY_W / 2);
+      text.setAttribute("y", 48);
       text.setAttribute("text-anchor", "middle");
       text.setAttribute("font-size", "11");
       text.setAttribute("font-weight", "700");
@@ -967,7 +978,7 @@ async function renderGantt(container, diagramCode) {
     sidebar.setAttribute("x", 0);
     sidebar.setAttribute("y", currentY);
     sidebar.setAttribute("width", SIDEBAR_W);
-    sidebar.setAttribute("height", laneH);
+    sidebar.setAttribute("height", laneH + (agent === visibleAgents[visibleAgents.length - 1] ? 100 : 0));
     sidebar.setAttribute("fill", "var(--bg)");
     sidebarLayer.appendChild(sidebar);
 
