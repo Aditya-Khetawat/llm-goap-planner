@@ -1,26 +1,33 @@
 package com.cps.mcp.model;
 
 import java.util.List;
-import com.cps.mcp.util.LLMClient;
 import com.cps.mcp.util.MCPClient;
 
 public class Action {
-    private String name;
+    private String id;
+    private String name; // title
+    private String description;
     private List<String> preconditions;
     private List<String> effects;
     private String userGoal;
     private String agent;
 
     public Action(String name, List<String> preconditions, List<String> effects) {
-        this(name, preconditions, effects, null, "SearchAgent");
+        this(null, name, "", preconditions, effects, null, "SearchAgent");
     }
 
     public Action(String name, List<String> preconditions, List<String> effects, String userGoal) {
-        this(name, preconditions, effects, userGoal, "SearchAgent");
+        this(null, name, "", preconditions, effects, userGoal, "SearchAgent");
     }
 
     public Action(String name, List<String> preconditions, List<String> effects, String userGoal, String agent) {
+        this(null, name, "", preconditions, effects, userGoal, agent);
+    }
+
+    public Action(String id, String name, String description, List<String> preconditions, List<String> effects, String userGoal, String agent) {
+        this.id = id;
         this.name = name;
+        this.description = description;
         this.preconditions = preconditions;
         this.effects = effects;
         this.userGoal = userGoal;
@@ -42,8 +49,32 @@ public class Action {
         }
     }
 
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
     public String getName() {
         return name;
+    }
+
+    public String getTitle() {
+        return name;
+    }
+
+    public void setTitle(String title) {
+        this.name = title;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     public List<String> getPreconditions() {

@@ -4,11 +4,18 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.stream.Collectors;
 import com.cps.mcp.model.*;
-import com.cps.mcp.util.LLMClient;
+import com.cps.mcp.util.LLMService;
+import com.cps.mcp.util.LLMServiceFactory;
 import com.cps.mcp.util.MermaidVisualizer;
 
 @RestController
 public class PlanController {
+
+    private final LLMServiceFactory llmServiceFactory;
+
+    public PlanController(LLMServiceFactory llmServiceFactory) {
+        this.llmServiceFactory = llmServiceFactory;
+    }
 
     @PostMapping("/plan")
     public Map<String, Object> plan(@RequestBody Map<String, Object> body) {
@@ -33,103 +40,210 @@ public class PlanController {
         // 2. Create initial state
         State state = new State();
 
-        // 3. Dynamic Action Generation using LLM (Tool-aware)
+        // 3. Resolve LLM provider from request body
+        String provider = (String) body.get("provider");
+        if (provider == null) {
+            provider = "auto";
+        }
+        LLMService llmService = llmServiceFactory.getService(provider);
+
+        // 4. Dynamic Action Generation using LLM (Tool-aware)
         String toolsStr = String.join(", ", effectiveTools);
-        String prompt = "You are a planning system. \n" +
-                        "Available tools: " + toolsStr + "\n" +
-                        "Rules:\n" +
-                        "1. Return ONLY the steps. NO introduction, NO explanations.\n" +
-                        "2. Format: - Description of the task | ToolName\n" +
-                        "3. Use ONE tool per step. Use SearchAgent for anything non-specialized.\n" +
-                        "4. Goal: " + goalStr;
         
-        String rawOutput = LLMClient.callLLM(prompt).trim();
-        System.out.println("RAW LLM OUTPUT:\n" + rawOutput);
+        PlanningResponse planningResponse;
+        try {
+            planningResponse = llmService.generatePlan(goalStr, toolsStr);
+        } catch (Exception e) {
+            System.err.println("PlanController: LLM planning failed: " + e.getMessage());
+            Map<String, Object> errorRes = new LinkedHashMap<>();
+            errorRes.put("error", "Failed to generate plan: " + e.getMessage());
+            return errorRes;
+        }
 
         List<Action> allActions = new ArrayList<>();
-        Goal goal = null;
 
-        // 4. Step Extraction and Agent Validation
-        String[] lines = rawOutput.split("\\n+");
-        List<String[]> parsedSteps = new ArrayList<>();
-        Set<String> seenDescriptions = new HashSet<>();
-        
-        for (String line : lines) {
-            String rawLine = line.trim();
-            if (rawLine.isEmpty()) continue;
-
-            // Skip common LLM meta-text
-            String lower = rawLine.toLowerCase();
-            if (lower.contains("here is") || lower.contains("sequential list") || lower.contains("achieve the goal") || lower.contains("i'm ready")) continue;
-
-            // Clean formatting
-            String cleaned = rawLine.replace("**", "").replaceAll("(?i)^(Step\\s+\\d+[:\\.]?\\s*|[\\d\\.\\-\\)\\*•\\s]+)", "").trim();
-            if (cleaned.length() < 10 || (cleaned.endsWith(":") && cleaned.length() < 60)) continue;
-
-            String stepName = cleaned;
-            String suggestedAgent = "SearchAgent";
-
-            if (cleaned.contains("|")) {
-                String[] parts = cleaned.split("\\|");
-                stepName = parts[0].trim();
-                String rawAgent = parts[1].trim();
+        // 5. Convert DTO tasks into GOAP actions with validation/normalization
+        List<PlanningTask> tasksList = planningResponse.getTasks();
+        if (tasksList != null && !tasksList.isEmpty()) {
+            for (int j = 0; j < tasksList.size(); j++) {
+                PlanningTask task = tasksList.get(j);
+                String name = task.getTitle();
+                String desc = task.getDescription();
+                String agent = task.getAgent();
                 
-                // Validate agent name
+                // Validate suggested agent against effectiveTools
+                String validatedAgent = "SearchAgent";
                 for (String t : effectiveTools) {
-                    if (rawAgent.toLowerCase().contains(t.toLowerCase().replace("agent", ""))) {
-                        suggestedAgent = t;
+                    if (agent.toLowerCase().contains(t.toLowerCase().replace("agent", ""))) {
+                        validatedAgent = t;
                         break;
                     }
                 }
+                
+                // Extract preconditions and effects
+                List<String> rawPre = task.getPreconditions();
+                List<String> rawEff = task.getEffects();
+                
+                // Normalize and clean facts
+                List<String> pre = new ArrayList<>();
+                if (rawPre != null) {
+                    for (String p : rawPre) {
+                        if (p != null && !p.trim().isEmpty()) {
+                            pre.add(p.trim().toLowerCase());
+                        }
+                    }
+                }
+                
+                List<String> eff = new ArrayList<>();
+                if (rawEff != null) {
+                    for (String e : rawEff) {
+                        if (e != null && !e.trim().isEmpty()) {
+                            eff.add(e.trim().toLowerCase());
+                        }
+                    }
+                }
+                
+                // Self-dependency detection & validation
+                for (String p : pre) {
+                    if (eff.contains(p)) {
+                        Map<String, Object> errorRes = new LinkedHashMap<>();
+                        errorRes.put("error", "Invalid plan: Self-dependency detected in task '" + name + "' (fact '" + p + "' is in both preconditions and effects).");
+                        return errorRes;
+                    }
+                }
+                
+                // Deduplicate
+                Set<String> preSet = new LinkedHashSet<>(pre);
+                Set<String> effSet = new LinkedHashSet<>(eff);
+                
+                pre = new ArrayList<>(preSet);
+                eff = new ArrayList<>(effSet);
+                
+                // Infer reasonable defaults if preconditions/effects are omitted
+                if (pre.isEmpty()) {
+                    pre = (j > 0) ? Arrays.asList("step_" + (j - 1) + "_done") : new ArrayList<>();
+                }
+                if (eff.isEmpty()) {
+                    eff = Arrays.asList("step_" + j + "_done");
+                }
+                
+                allActions.add(new Action("T" + task.getId(), name, desc, pre, eff, goalStr, validatedAgent));
             }
+        } else {
+            allActions.add(new Action("T1", "Complete general task", "No tasks found", new ArrayList<>(), Arrays.asList("done"), goalStr, effectiveTools.get(0)));
+        }
 
-            // Deduplication and sanity check
-            String shortDesc = stepName.substring(0, Math.min(stepName.length(), 20)).toLowerCase();
-            if (!seenDescriptions.contains(shortDesc)) {
-                parsedSteps.add(new String[]{stepName, suggestedAgent});
-                seenDescriptions.add(shortDesc);
+        // 6. Goal Construction Priorities
+        Goal goal = null;
+        List<String> explicitGoalConditions = (List<String>) body.get("goal_conditions");
+        if (explicitGoalConditions != null && !explicitGoalConditions.isEmpty()) {
+            // Priority 1: Explicit goal_conditions
+            List<String> normalizedGoal = new ArrayList<>();
+            for (String g : explicitGoalConditions) {
+                if (g != null && !g.trim().isEmpty()) normalizedGoal.add(g.trim().toLowerCase());
+            }
+            goal = new Goal(normalizedGoal);
+            System.out.println("Goal constructed via Priority 1 (Explicit): " + normalizedGoal);
+        } else {
+            // Priority 2: Inferred semantic goal from the final task
+            List<String> inferredSemantic = null;
+            if (!allActions.isEmpty()) {
+                Action finalAction = allActions.get(allActions.size() - 1);
+                if (finalAction.getEffects() != null && !finalAction.getEffects().isEmpty()) {
+                    inferredSemantic = finalAction.getEffects();
+                }
             }
             
-            if (parsedSteps.size() >= 6) break;
-        }
-
-        // 4. Convert steps into GOAP actions
-        if (parsedSteps.size() >= 1) {
-            for (int j = 0; j < parsedSteps.size(); j++) {
-                String name = parsedSteps.get(j)[0];
-                String agent = parsedSteps.get(j)[1];
+            if (inferredSemantic != null && !inferredSemantic.isEmpty()) {
+                goal = new Goal(inferredSemantic);
+                System.out.println("Goal constructed via Priority 2 (Semantic): " + inferredSemantic);
+            } else {
+                // Priority 3: Inferred leaf effects
+                Set<String> allEffects = new HashSet<>();
+                Set<String> allPreconditions = new HashSet<>();
+                for (Action action : allActions) {
+                    allEffects.addAll(action.getEffects());
+                    allPreconditions.addAll(action.getPreconditions());
+                }
+                List<String> leafEffects = new ArrayList<>(allEffects);
+                leafEffects.removeAll(allPreconditions);
                 
-                List<String> pre = (j > 0) ? Arrays.asList("step_" + (j - 1) + "_done") : new ArrayList<>();
-                List<String> eff = Arrays.asList("step_" + j + "_done");
-                
-                allActions.add(new Action(name, pre, eff, goalStr, agent));
+                if (leafEffects.isEmpty() && !allActions.isEmpty()) {
+                    leafEffects = allActions.get(allActions.size() - 1).getEffects();
+                }
+                goal = new Goal(leafEffects);
+                System.out.println("Goal constructed via Priority 3 (Leaf Fallback): " + leafEffects);
             }
-            goal = new Goal(Arrays.asList("step_" + (allActions.size() - 1) + "_done"));
-        } else {
-            // Fallback if no steps parsed
-            allActions.add(new Action("Complete general task", new ArrayList<>(), Arrays.asList("done"), goalStr, effectiveTools.get(0)));
-            goal = new Goal(Arrays.asList("done"));
         }
 
-        // 5. Call planner
+        // 7. Validate plan inputs (self-loops, cyclic dependencies, unreachable goals, disconnected components)
+        com.cps.mcp.util.PlanValidator.ValidationResult validationResult = com.cps.mcp.util.PlanValidator.validate(state, goal, allActions);
+        if (!validationResult.isValid()) {
+            Map<String, Object> errorRes = new LinkedHashMap<>();
+            errorRes.put("error", validationResult.getErrorMessage());
+            return errorRes;
+        }
+
+        // 8. Solve using GOAP Planner
         Planner planner = new Planner();
         PlanResult planResult = planner.plan(state, goal, allActions);
         List<Action> plan = planResult.getPlan();
         List<Map<String, Object>> trace = planResult.getTrace();
 
-        // 6. EXECUTION PHASE
+        // Validate plan outcome (detect cyclic dependency or unreachable goals)
+        if (plan.isEmpty() && !allActions.isEmpty() && !goal.getRequiredConditions().isEmpty()) {
+            Map<String, Object> errorRes = new LinkedHashMap<>();
+            errorRes.put("error", "Failed to generate plan: Unreachable goal or cyclic dependency detected. GOAP could not find a path to satisfy " + goal.getRequiredConditions());
+            return errorRes;
+        }
+
+
+        // 8. Dynamic Dependency Graph generation
         List<Map<String, Object>> tasks = new ArrayList<>();
         List<Map<String, Object>> executions = new ArrayList<>();
+        
+        // Map resolved Action list to task maps
+        Map<Action, String> actionToId = new HashMap<>();
         int i = 1;
         for (Action action : plan) {
+            String idStr = (action.getId() != null) ? action.getId() : "T" + i;
+            actionToId.put(action, idStr);
+            i++;
+        }
+
+        i = 1;
+        for (Action action : plan) {
             Map<String, Object> task = new LinkedHashMap<>();
-            task.put("id", "T" + i);
-            task.put("description", action.getName());
+            String currentId = actionToId.get(action);
+            task.put("id", currentId);
+            task.put("description", action.getName() + " - " + action.getDescription());
             task.put("agent", action.getAgent());
-            task.put("dependencies", (i > 1) ? Arrays.asList("T" + (i - 1)) : new ArrayList<>());
+
+            // Compute dynamic dependencies: find prior actions that satisfy preconditions
+            List<String> deps = new ArrayList<>();
+            for (int j = 0; j < i - 1; j++) {
+                Action prevAction = plan.get(j);
+                boolean hasOverlap = false;
+                for (String effect : prevAction.getEffects()) {
+                    if (action.getPreconditions().contains(effect)) {
+                        hasOverlap = true;
+                        break;
+                    }
+                }
+                if (hasOverlap) {
+                    deps.add(actionToId.get(prevAction));
+                }
+            }
+            task.put("dependencies", deps);
 
             System.out.println("Executing " + task.get("id") + " with " + action.getAgent() + "...");
-            String agentResponse = LLMClient.simulateAgentExecution(action.getAgent(), action.getName());
+            String agentResponse;
+            try {
+                agentResponse = llmService.simulateAgentExecution(action.getAgent(), action.getName());
+            } catch (Exception e) {
+                System.err.println("PlanController: Agent simulation failed: " + e.getMessage());
+                agentResponse = "Task completed by " + action.getAgent();
+            }
             task.put("output", agentResponse);
 
             Map<String, Object> execResult = new LinkedHashMap<>();
@@ -143,7 +257,7 @@ public class PlanController {
             i++;
         }
 
-        // 7. Visualizations
+        // 9. Visualizations
         String flowchart = MermaidVisualizer.generateFlowchart(tasks);
         String gantt = MermaidVisualizer.generateGantt(tasks);
 

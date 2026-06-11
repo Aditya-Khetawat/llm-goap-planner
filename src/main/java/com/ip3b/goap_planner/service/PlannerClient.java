@@ -29,7 +29,7 @@ public class PlannerClient {
      * Call the internal planner `/plan` endpoint and map the response to a PlanResponse.
      * Returns null on error so the caller can fallback.
      */
-    public PlanResponse generate(String goal, List<String> tools) {
+    public PlanResponse generate(String goal, List<String> tools, String provider) {
         try {
             URL url = new URL(PLANNER_URL);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -42,6 +42,7 @@ public class PlannerClient {
             Map<String, Object> req = new java.util.HashMap<>();
             req.put("goal", goal);
             req.put("tools", tools != null ? tools : List.of());
+            req.put("provider", provider != null ? provider : "auto");
             
             String payload = mapper.writeValueAsString(req);
             try (OutputStream os = conn.getOutputStream()) {

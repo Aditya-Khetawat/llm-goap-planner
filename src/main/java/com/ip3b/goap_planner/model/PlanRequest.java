@@ -2,5 +2,8 @@ package com.ip3b.goap_planner.model;
 
 import java.util.List;
 
-public record PlanRequest(String goal, List<String> tools) {
+public record PlanRequest(String goal, List<String> tools, String provider) {
+    public PlanRequest(String goal, List<String> tools) {
+        this(goal, tools, "auto");
+    }
 }
