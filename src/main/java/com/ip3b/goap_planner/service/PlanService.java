@@ -32,10 +32,11 @@ public class PlanService {
     public PlanWithSource generatePlanWithSource(PlanRequest request) {
         String goal = normalizeGoal(request == null ? null : request.goal());
         List<String> tools = request != null ? request.tools() : List.of();
+        String provider = request != null && request.provider() != null ? request.provider() : "auto";
 
         // Try internal planner API first
         try {
-            PlanResponse plannerResp = plannerClient.generate(goal, tools);
+            PlanResponse plannerResp = plannerClient.generate(goal, tools, provider);
             if (plannerResp != null) {
                 return new PlanWithSource("PLANNER", plannerResp);
             }
