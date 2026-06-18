@@ -3,10 +3,15 @@ package com.cps.mcp.controller;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.stream.Collectors;
-import com.cps.mcp.model.*;
+import com.cps.mcp.model.PlanningResponse;
+import com.cps.mcp.model.PlanningTask;
 import com.cps.mcp.util.LLMService;
 import com.cps.mcp.util.LLMServiceFactory;
 import com.cps.mcp.util.MermaidVisualizer;
+import com.cps.mcp.util.PlanValidator;
+import com.embabel.plan.common.condition.ConditionAction;
+import com.embabel.plan.common.condition.ConditionGoal;
+import com.embabel.plan.common.condition.ConditionDetermination;
 
 @RestController
 public class PlanController {
@@ -37,8 +42,18 @@ public class PlanController {
         toolSet.add("SearchAgent"); 
         List<String> effectiveTools = new ArrayList<>(toolSet);
 
-        // 2. Create initial state
-        State state = new State();
+        // 2. Create initial state map
+        Map<String, Boolean> initialStateMap = new LinkedHashMap<>();
+        if (body.containsKey("initial_state")) {
+            Object rawState = body.get("initial_state");
+            if (rawState instanceof Map) {
+                for (Map.Entry<?, ?> entry : ((Map<?, ?>) rawState).entrySet()) {
+                    if (entry.getKey() != null) {
+                        initialStateMap.put(entry.getKey().toString(), Boolean.TRUE.equals(entry.getValue()));
+                    }
+                }
+            }
+        }
 
         // 3. Resolve LLM provider from request body
         String provider = (String) body.get("provider");
@@ -60,7 +75,10 @@ public class PlanController {
             return errorRes;
         }
 
-        List<Action> allActions = new ArrayList<>();
+        List<ConditionAction> allActions = new ArrayList<>();
+        Map<ConditionAction, String> actionToId = new HashMap<>();
+        Map<ConditionAction, String> actionToDesc = new HashMap<>();
+        Map<ConditionAction, String> actionToAgent = new HashMap<>();
 
         // 5. Convert DTO tasks into GOAP actions with validation/normalization
         List<PlanningTask> tasksList = planningResponse.getTasks();
@@ -127,57 +145,81 @@ public class PlanController {
                     eff = Arrays.asList("step_" + j + "_done");
                 }
                 
-                allActions.add(new Action("T" + task.getId(), name, desc, pre, eff, goalStr, validatedAgent));
+                Map<String, Boolean> preMap = new LinkedHashMap<>();
+                for (String p : pre) preMap.put(p, true);
+                Map<String, Boolean> effMap = new LinkedHashMap<>();
+                for (String e : eff) effMap.put(e, true);
+
+                ConditionAction action = com.embabel.plan.common.condition.EmbabelPlanningFactory.createAction(name, preMap, effMap);
+                allActions.add(action);
+                
+                String idStr = "T" + task.getId();
+                actionToId.put(action, idStr);
+                actionToDesc.put(action, desc);
+                actionToAgent.put(action, validatedAgent);
             }
         } else {
-            allActions.add(new Action("T1", "Complete general task", "No tasks found", new ArrayList<>(), Arrays.asList("done"), goalStr, effectiveTools.get(0)));
+            Map<String, Boolean> preMap = new LinkedHashMap<>();
+            Map<String, Boolean> effMap = new LinkedHashMap<>();
+            effMap.put("done", true);
+            ConditionAction action = com.embabel.plan.common.condition.EmbabelPlanningFactory.createAction("Complete general task", preMap, effMap);
+            allActions.add(action);
+            
+            actionToId.put(action, "T1");
+            actionToDesc.put(action, "No tasks found");
+            actionToAgent.put(action, effectiveTools.get(0));
         }
 
         // 6. Goal Construction Priorities
-        Goal goal = null;
+        ConditionGoal goal = null;
         List<String> explicitGoalConditions = (List<String>) body.get("goal_conditions");
+        List<String> goalConditionsList = new ArrayList<>();
         if (explicitGoalConditions != null && !explicitGoalConditions.isEmpty()) {
             // Priority 1: Explicit goal_conditions
-            List<String> normalizedGoal = new ArrayList<>();
             for (String g : explicitGoalConditions) {
-                if (g != null && !g.trim().isEmpty()) normalizedGoal.add(g.trim().toLowerCase());
+                if (g != null && !g.trim().isEmpty()) goalConditionsList.add(g.trim().toLowerCase());
             }
-            goal = new Goal(normalizedGoal);
-            System.out.println("Goal constructed via Priority 1 (Explicit): " + normalizedGoal);
+            System.out.println("Goal constructed via Priority 1 (Explicit): " + goalConditionsList);
         } else {
             // Priority 2: Inferred semantic goal from the final task
             List<String> inferredSemantic = null;
             if (!allActions.isEmpty()) {
-                Action finalAction = allActions.get(allActions.size() - 1);
+                ConditionAction finalAction = allActions.get(allActions.size() - 1);
                 if (finalAction.getEffects() != null && !finalAction.getEffects().isEmpty()) {
-                    inferredSemantic = finalAction.getEffects();
+                    inferredSemantic = new ArrayList<>(finalAction.getEffects().keySet());
                 }
             }
             
             if (inferredSemantic != null && !inferredSemantic.isEmpty()) {
-                goal = new Goal(inferredSemantic);
+                goalConditionsList = inferredSemantic;
                 System.out.println("Goal constructed via Priority 2 (Semantic): " + inferredSemantic);
             } else {
                 // Priority 3: Inferred leaf effects
                 Set<String> allEffects = new HashSet<>();
                 Set<String> allPreconditions = new HashSet<>();
-                for (Action action : allActions) {
-                    allEffects.addAll(action.getEffects());
-                    allPreconditions.addAll(action.getPreconditions());
+                for (ConditionAction action : allActions) {
+                    allEffects.addAll(action.getEffects().keySet());
+                    allPreconditions.addAll(action.getPreconditions().keySet());
                 }
                 List<String> leafEffects = new ArrayList<>(allEffects);
                 leafEffects.removeAll(allPreconditions);
                 
                 if (leafEffects.isEmpty() && !allActions.isEmpty()) {
-                    leafEffects = allActions.get(allActions.size() - 1).getEffects();
+                    leafEffects = new ArrayList<>(allActions.get(allActions.size() - 1).getEffects().keySet());
                 }
-                goal = new Goal(leafEffects);
+                goalConditionsList = leafEffects;
                 System.out.println("Goal constructed via Priority 3 (Leaf Fallback): " + leafEffects);
             }
         }
 
+        Map<String, Boolean> goalMap = new LinkedHashMap<>();
+        for (String g : goalConditionsList) {
+            goalMap.put(g, true);
+        }
+        goal = com.embabel.plan.common.condition.EmbabelPlanningFactory.createGoal("Goal", goalMap);
+
         // 7. Validate plan inputs (self-loops, cyclic dependencies, unreachable goals, disconnected components)
-        com.cps.mcp.util.PlanValidator.ValidationResult validationResult = com.cps.mcp.util.PlanValidator.validate(state, goal, allActions);
+        PlanValidator.ValidationResult validationResult = PlanValidator.validate(initialStateMap, goal, allActions);
         if (!validationResult.isValid()) {
             Map<String, Object> errorRes = new LinkedHashMap<>();
             errorRes.put("error", validationResult.getErrorMessage());
@@ -185,79 +227,135 @@ public class PlanController {
         }
 
         // 8. Solve using GOAP Planner
-        Planner planner = new Planner();
-        PlanResult planResult = planner.plan(state, goal, allActions);
-        List<Action> plan = planResult.getPlan();
-        List<Map<String, Object>> trace = planResult.getTrace();
+        com.embabel.plan.goap.astar.AStarGoapPlanner planner = new com.embabel.plan.goap.astar.AStarGoapPlanner(
+            com.embabel.plan.common.condition.EmbabelPlanningFactory.createDeterminer(initialStateMap)
+        );
+        com.embabel.plan.common.condition.ConditionPlan planResult = planner.planToGoal(allActions, goal);
+        List<com.embabel.plan.Action> planActions = (planResult != null) ? planResult.getActions() : Collections.emptyList();
 
         // Validate plan outcome (detect cyclic dependency or unreachable goals)
-        if (plan.isEmpty() && !allActions.isEmpty() && !goal.getRequiredConditions().isEmpty()) {
+        if (planActions.isEmpty() && !allActions.isEmpty() && !goal.getPreconditions().isEmpty()) {
             Map<String, Object> errorRes = new LinkedHashMap<>();
-            errorRes.put("error", "Failed to generate plan: Unreachable goal or cyclic dependency detected. GOAP could not find a path to satisfy " + goal.getRequiredConditions());
+            errorRes.put("error", "Failed to generate plan: Unreachable goal or cyclic dependency detected. GOAP could not find a path to satisfy " + goal.getPreconditions().keySet());
             return errorRes;
         }
 
+        // Reconstruct Execution Trace
+        List<Map<String, Object>> trace = new ArrayList<>();
+        Set<String> tempState = new HashSet<>();
+        for (Map.Entry<String, Boolean> entry : initialStateMap.entrySet()) {
+            if (entry.getValue() != null && entry.getValue()) {
+                tempState.add(entry.getKey());
+            }
+        }
 
-        // 8. Dynamic Dependency Graph generation
+        for (com.embabel.plan.Action rawAction : planActions) {
+            ConditionAction action = (ConditionAction) rawAction;
+            List<String> stateBefore = new ArrayList<>(tempState);
+
+            List<String> preconditionsChecked = new ArrayList<>();
+            List<String> missing = new ArrayList<>();
+            for (Map.Entry<String, ConditionDetermination> preEntry : action.getPreconditions().entrySet()) {
+                String preFact = preEntry.getKey();
+                if (preEntry.getValue() == ConditionDetermination.TRUE) {
+                    preconditionsChecked.add(preFact);
+                    if (!tempState.contains(preFact)) {
+                        missing.add(preFact);
+                    }
+                }
+            }
+
+            List<String> effectsApplied = new ArrayList<>();
+            for (Map.Entry<String, ConditionDetermination> effEntry : action.getEffects().entrySet()) {
+                String effFact = effEntry.getKey();
+                if (effEntry.getValue() == ConditionDetermination.TRUE) {
+                    effectsApplied.add(effFact);
+                    tempState.add(effFact);
+                } else {
+                    tempState.remove(effFact);
+                }
+            }
+
+            List<String> stateAfter = new ArrayList<>(tempState);
+
+            Map<String, Object> traceEntry = new LinkedHashMap<>();
+            traceEntry.put("action", action.getName());
+            traceEntry.put("state_before", stateBefore);
+            traceEntry.put("preconditions_checked", preconditionsChecked);
+            traceEntry.put("missing_preconditions", missing);
+            traceEntry.put("effects_applied", effectsApplied);
+            traceEntry.put("state_after", stateAfter);
+            trace.add(traceEntry);
+        }
+
+        // 9. Dynamic Dependency Graph generation
         List<Map<String, Object>> tasks = new ArrayList<>();
         List<Map<String, Object>> executions = new ArrayList<>();
         
         // Map resolved Action list to task maps
-        Map<Action, String> actionToId = new HashMap<>();
-        int i = 1;
-        for (Action action : plan) {
-            String idStr = (action.getId() != null) ? action.getId() : "T" + i;
-            actionToId.put(action, idStr);
-            i++;
+        Map<com.embabel.plan.Action, String> resolvedActionToId = new HashMap<>();
+        int idx = 1;
+        for (com.embabel.plan.Action rawAction : planActions) {
+            ConditionAction action = (ConditionAction) rawAction;
+            String originalId = actionToId.get(action);
+            String idStr = (originalId != null) ? originalId : "T" + idx;
+            resolvedActionToId.put(action, idStr);
+            idx++;
         }
 
-        i = 1;
-        for (Action action : plan) {
+        idx = 1;
+        for (com.embabel.plan.Action rawAction : planActions) {
+            ConditionAction action = (ConditionAction) rawAction;
             Map<String, Object> task = new LinkedHashMap<>();
-            String currentId = actionToId.get(action);
+            String currentId = resolvedActionToId.get(action);
             task.put("id", currentId);
-            task.put("description", action.getName() + " - " + action.getDescription());
-            task.put("agent", action.getAgent());
+            
+            String desc = actionToDesc.get(action);
+            task.put("description", action.getName() + " - " + (desc != null ? desc : ""));
+            
+            String agent = actionToAgent.get(action);
+            task.put("agent", agent != null ? agent : "SearchAgent");
 
             // Compute dynamic dependencies: find prior actions that satisfy preconditions
             List<String> deps = new ArrayList<>();
-            for (int j = 0; j < i - 1; j++) {
-                Action prevAction = plan.get(j);
+            for (int j = 0; j < idx - 1; j++) {
+                com.embabel.plan.Action prevRaw = planActions.get(j);
+                ConditionAction prevAction = (ConditionAction) prevRaw;
                 boolean hasOverlap = false;
-                for (String effect : prevAction.getEffects()) {
-                    if (action.getPreconditions().contains(effect)) {
+                for (String effect : prevAction.getEffects().keySet()) {
+                    if (action.getPreconditions().containsKey(effect)) {
                         hasOverlap = true;
                         break;
                     }
                 }
                 if (hasOverlap) {
-                    deps.add(actionToId.get(prevAction));
+                    deps.add(resolvedActionToId.get(prevAction));
                 }
             }
             task.put("dependencies", deps);
 
-            System.out.println("Executing " + task.get("id") + " with " + action.getAgent() + "...");
+            System.out.println("Executing " + task.get("id") + " with " + task.get("agent") + "...");
             String agentResponse;
             try {
-                agentResponse = llmService.simulateAgentExecution(action.getAgent(), action.getName());
+                agentResponse = llmService.simulateAgentExecution(task.get("agent").toString(), action.getName());
             } catch (Exception e) {
                 System.err.println("PlanController: Agent simulation failed: " + e.getMessage());
-                agentResponse = "Task completed by " + action.getAgent();
+                agentResponse = "Task completed by " + task.get("agent");
             }
             task.put("output", agentResponse);
 
             Map<String, Object> execResult = new LinkedHashMap<>();
             execResult.put("type", "MCP");
-            execResult.put("agent", action.getAgent());
+            execResult.put("agent", task.get("agent"));
             execResult.put("task", action.getName());
             execResult.put("response", Map.of("content", agentResponse));
             executions.add(execResult);
 
             tasks.add(task);
-            i++;
+            idx++;
         }
 
-        // 9. Visualizations
+        // 10. Visualizations
         String flowchart = MermaidVisualizer.generateFlowchart(tasks);
         String gantt = MermaidVisualizer.generateGantt(tasks);
 
@@ -271,4 +369,5 @@ public class PlanController {
         response.put("gantt", gantt);
         return response;
     }
-}
+}
+

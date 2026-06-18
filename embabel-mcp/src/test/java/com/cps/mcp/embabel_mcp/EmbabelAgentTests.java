@@ -12,8 +12,26 @@ import com.embabel.agent.api.common.autonomy.Autonomy;
 import com.embabel.agent.api.common.autonomy.AgentProcessExecution;
 import com.cps.mcp.agent.DemoAgent;
 
-@SpringBootTest
+import com.embabel.agent.spi.LlmService;
+
+@SpringBootTest(properties = {
+    "embabel.llm.provider=openai",
+    "embabel.models.default-llm=gpt-4.1-mini",
+    "embabel.search.provider=mock"
+})
 public class EmbabelAgentTests {
+
+    @org.springframework.boot.test.context.TestConfiguration
+    static class TestConfig implements org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor {
+        @Override
+        public void postProcessBeanDefinitionRegistry(org.springframework.beans.factory.support.BeanDefinitionRegistry registry) {
+            if (registry.containsBeanDefinition("llmService")) {
+                registry.removeBeanDefinition("llmService");
+            }
+        }
+        @Override
+        public void postProcessBeanFactory(org.springframework.beans.factory.config.ConfigurableListableBeanFactory beanFactory) {}
+    }
 
     @Autowired
     private AgentPlatform agentPlatform;

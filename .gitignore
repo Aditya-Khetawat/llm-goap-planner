@@ -38,3 +38,6 @@ __pycache__/
 venv/
 .env.*
 .venv
+# General
+*.log
+.antigravity*

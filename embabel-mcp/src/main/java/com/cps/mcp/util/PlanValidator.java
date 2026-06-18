@@ -1,7 +1,9 @@
 package com.cps.mcp.util;
 
 import java.util.*;
-import com.cps.mcp.model.*;
+import com.embabel.plan.common.condition.ConditionAction;
+import com.embabel.plan.common.condition.ConditionGoal;
+import com.embabel.plan.common.condition.ConditionDetermination;
 
 public class PlanValidator {
 
@@ -23,11 +25,11 @@ public class PlanValidator {
         }
     }
 
-    public static ValidationResult validate(State initialState, Goal goal, List<Action> actions) {
+    public static ValidationResult validate(Map<String, Boolean> initialState, ConditionGoal goal, List<ConditionAction> actions) {
         // 1. Self loop (self-dependency) check
-        for (Action action : actions) {
-            for (String pre : action.getPreconditions()) {
-                if (action.getEffects().contains(pre)) {
+        for (ConditionAction action : actions) {
+            for (String pre : action.getPreconditions().keySet()) {
+                if (action.getEffects().containsKey(pre)) {
                     return new ValidationResult(false, "Invalid plan: Self-dependency detected in task '" 
                             + action.getName() + "' (fact '" + pre + "' is in both preconditions and effects).");
                 }
@@ -35,22 +37,40 @@ public class PlanValidator {
         }
 
         // 2. Reachability analysis
-        Set<String> reachableFacts = new HashSet<>(initialState.getFacts());
-        Set<Action> reachableActions = new HashSet<>();
+        Set<String> reachableFacts = new HashSet<>();
+        if (initialState != null) {
+            for (Map.Entry<String, Boolean> entry : initialState.entrySet()) {
+                if (entry.getValue() != null && entry.getValue()) {
+                    reachableFacts.add(entry.getKey());
+                }
+            }
+        }
+
+        Set<ConditionAction> reachableActions = new HashSet<>();
         boolean progress = true;
         while (progress) {
             progress = false;
-            for (Action action : actions) {
+            for (ConditionAction action : actions) {
                 if (!reachableActions.contains(action)) {
                     boolean canExecute = true;
-                    for (String pre : action.getPreconditions()) {
-                        if (!reachableFacts.contains(pre)) {
+                    for (Map.Entry<String, ConditionDetermination> preEntry : action.getPreconditions().entrySet()) {
+                        String factName = preEntry.getKey();
+                        boolean expected = (preEntry.getValue() == ConditionDetermination.TRUE);
+                        boolean actual = reachableFacts.contains(factName);
+                        if (actual != expected) {
                             canExecute = false;
                             break;
                         }
                     }
                     if (canExecute) {
-                        reachableFacts.addAll(action.getEffects());
+                        for (Map.Entry<String, ConditionDetermination> effEntry : action.getEffects().entrySet()) {
+                            String factName = effEntry.getKey();
+                            if (effEntry.getValue() == ConditionDetermination.TRUE) {
+                                reachableFacts.add(factName);
+                            } else {
+                                reachableFacts.remove(factName);
+                            }
+                        }
                         reachableActions.add(action);
                         progress = true;
                     }
@@ -60,8 +80,11 @@ public class PlanValidator {
 
         // Check if all required goal conditions are satisfied
         List<String> missingGoalConditions = new ArrayList<>();
-        for (String condition : goal.getRequiredConditions()) {
-            if (!reachableFacts.contains(condition)) {
+        for (Map.Entry<String, ConditionDetermination> entry : goal.getPreconditions().entrySet()) {
+            String condition = entry.getKey();
+            boolean expected = (entry.getValue() == ConditionDetermination.TRUE);
+            boolean actual = reachableFacts.contains(condition);
+            if (actual != expected) {
                 missingGoalConditions.add(condition);
             }
         }
@@ -70,10 +93,14 @@ public class PlanValidator {
             // Check if missing goal conditions are produced by any action at all
             for (String missingCond : missingGoalConditions) {
                 boolean producedByAny = false;
-                for (Action action : actions) {
-                    if (action.getEffects().contains(missingCond)) {
-                        producedByAny = true;
-                        break;
+                for (ConditionAction action : actions) {
+                    if (action.getEffects().containsKey(missingCond)) {
+                        ConditionDetermination goalDet = goal.getPreconditions().get(missingCond);
+                        ConditionDetermination actionDet = action.getEffects().get(missingCond);
+                        if (actionDet == goalDet) {
+                            producedByAny = true;
+                            break;
+                        }
                     }
                 }
                 if (!producedByAny) {
@@ -82,24 +109,24 @@ public class PlanValidator {
             }
 
             // Group unreachable actions
-            List<Action> unreachableActionsList = new ArrayList<>();
-            for (Action action : actions) {
+            List<ConditionAction> unreachableActionsList = new ArrayList<>();
+            for (ConditionAction action : actions) {
                 if (!reachableActions.contains(action)) {
                     unreachableActionsList.add(action);
                 }
             }
 
             // Find if there is a cycle among unreachable actions
-            Map<Action, List<Action>> adj = new HashMap<>();
-            for (Action a : unreachableActionsList) {
+            Map<ConditionAction, List<ConditionAction>> adj = new HashMap<>();
+            for (ConditionAction a : unreachableActionsList) {
                 adj.put(a, new ArrayList<>());
             }
-            for (Action a : unreachableActionsList) {
-                for (Action b : unreachableActionsList) {
+            for (ConditionAction a : unreachableActionsList) {
+                for (ConditionAction b : unreachableActionsList) {
                     if (a != b) {
                         boolean overlaps = false;
-                        for (String eff : a.getEffects()) {
-                            if (b.getPreconditions().contains(eff)) {
+                        for (String eff : a.getEffects().keySet()) {
+                            if (b.getPreconditions().containsKey(eff)) {
                                 overlaps = true;
                                 break;
                             }
@@ -111,10 +138,10 @@ public class PlanValidator {
                 }
             }
 
-            Set<Action> visited = new HashSet<>();
-            Set<Action> stack = new HashSet<>();
-            List<Action> cycle = new ArrayList<>();
-            for (Action a : unreachableActionsList) {
+            Set<ConditionAction> visited = new HashSet<>();
+            Set<ConditionAction> stack = new HashSet<>();
+            List<ConditionAction> cycle = new ArrayList<>();
+            for (ConditionAction a : unreachableActionsList) {
                 if (!visited.contains(a)) {
                     if (findCycleDFS(a, adj, visited, stack, cycle)) {
                         StringBuilder cycleStr = new StringBuilder();
@@ -130,14 +157,20 @@ public class PlanValidator {
             }
 
             // Detect disconnected component (preconditions never produced by any action)
-            for (Action a : unreachableActionsList) {
-                for (String pre : a.getPreconditions()) {
-                    if (!reachableFacts.contains(pre)) {
+            for (ConditionAction a : unreachableActionsList) {
+                for (String pre : a.getPreconditions().keySet()) {
+                    boolean expected = (a.getPreconditions().get(pre) == ConditionDetermination.TRUE);
+                    boolean actual = reachableFacts.contains(pre);
+                    if (actual != expected) {
                         boolean produced = false;
-                        for (Action other : actions) {
-                            if (other.getEffects().contains(pre)) {
-                                produced = true;
-                                break;
+                        for (ConditionAction other : actions) {
+                            if (other.getEffects().containsKey(pre)) {
+                                ConditionDetermination otherDet = other.getEffects().get(pre);
+                                ConditionDetermination preDet = a.getPreconditions().get(pre);
+                                if (otherDet == preDet) {
+                                    produced = true;
+                                    break;
+                                }
                             }
                         }
                         if (!produced) {
@@ -155,15 +188,15 @@ public class PlanValidator {
         return new ValidationResult(true, null);
     }
 
-    private static boolean findCycleDFS(Action u, Map<Action, List<Action>> adj, Set<Action> visited, Set<Action> stack, List<Action> cycle) {
+    private static boolean findCycleDFS(ConditionAction u, Map<ConditionAction, List<ConditionAction>> adj, Set<ConditionAction> visited, Set<ConditionAction> stack, List<ConditionAction> cycle) {
         visited.add(u);
         stack.add(u);
         cycle.add(u);
-        for (Action v : adj.get(u)) {
+        for (ConditionAction v : adj.get(u)) {
             if (stack.contains(v)) {
                 int idx = cycle.indexOf(v);
                 if (idx != -1) {
-                    List<Action> sublist = new ArrayList<>(cycle.subList(idx, cycle.size()));
+                    List<ConditionAction> sublist = new ArrayList<>(cycle.subList(idx, cycle.size()));
                     sublist.add(v);
                     cycle.clear();
                     cycle.addAll(sublist);
@@ -181,3 +214,4 @@ public class PlanValidator {
         return false;
     }
 }
+

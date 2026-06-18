@@ -72,8 +72,35 @@ public class DummyLlmService implements LlmService<DummyLlmService> {
                 }
 
                 if (tools.isEmpty() || isRanking) {
-                    String json = "{\"rankings\": [{\"name\": \"DemoAgent\", \"confidence\": 1.0}]}";
-                    System.out.println("  Action: Ranking -> Returning RankingsResponse JSON");
+                    boolean isTravel = false;
+                    for (Message msg : messages) {
+                        if (msg.getContent() != null) {
+                            String content = msg.getContent();
+                            int startIdx = content.indexOf("User input: <");
+                            if (startIdx != -1) {
+                                int endIdx = content.indexOf(">", startIdx);
+                                if (endIdx != -1) {
+                                    String userInput = content.substring(startIdx + "User input: <".length(), endIdx).toLowerCase();
+                                    if (userInput.contains("trip") || 
+                                        userInput.contains("jaipur") || 
+                                        userInput.contains("prague") || 
+                                        userInput.contains("tokyo")) {
+                                        isTravel = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    String json;
+                    if (isTravel) {
+                        json = "{\"rankings\": [{\"name\": \"TravelPlannerAgent\", \"confidence\": 1.0}]}";
+                        System.out.println("  Action: Ranking -> Returning TravelPlannerAgent JSON");
+                    } else {
+                        json = "{\"rankings\": [{\"name\": \"DemoAgent\", \"confidence\": 1.0}]}";
+                        System.out.println("  Action: Ranking -> Returning DemoAgent JSON");
+                    }
                     return new LlmMessageResponse(new AssistantMessage(json), json, new Usage(0, 0, null));
                 }
 
