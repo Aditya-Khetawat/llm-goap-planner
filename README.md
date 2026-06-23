@@ -1,161 +1,98 @@
-# 🌌 LLM-GOAP: Premium AI Orchestration Platform
+# LLM-GOAP
 
-## 🚀 Project Overview
+LLM-GOAP is a hybrid GOAP and LLM planning workspace that combines a Spring Boot gateway, an Embabel-based planning backend, a static browser UI, and a Streamlit developer console. The repository now reflects the current multi-surface setup rather than a single monolithic frontend.
 
-**LLM-GOAP** is a high-performance, production-grade AI orchestration dashboard designed to bridge the gap between traditional **Goal-Oriented Action Planning (GOAP)** and modern **Large Language Models (LLMs)**. 
+## What is implemented
 
-Built with a **black-dominant, high-contrast aesthetic**, this platform enables developers to visualize complex agent-based workflows, monitor real-time execution traces, and manage multi-agent handoffs through a sophisticated, theme-persistent dashboard.
+The platform currently provides:
 
----
+- A Spring Boot gateway that exposes the planning API at `/api/plans`.
+- An Embabel backend on port `9090` that resolves plans and falls back to the legacy planner when needed.
+- A browser frontend served from `src/main/resources/static/` with goal entry, Mermaid rendering, plan metadata, and tabbed visualizations.
+- A Streamlit console in `streamlit-ui/` for debugging plans, traces, and reports.
+- Python bridge code in `planner/` for AI integration and Mermaid generation.
 
-## 🎯 Strategic Goals
+## Frontend status
 
-1.  **Semantic Goal Decomposition**: Utilize Llama3 to break high-level human intent into actionable, structured plans.
-2.  **High-Fidelity Visual Intelligence**: Deliver professional-grade **SVG Orchestration Graphs** and **Gantt Timelines** with sub-pixel precision.
-3.  **Agent Orchestration**: Prototype complex handoff chains where agents (Search, Calendar, Manager) collaborate based on specialized capabilities.
-4.  **Production UX**: Provide a seamless, state-aware interface with persistent dark-mode and fluid animations.
+The main user-facing frontend is not a separate app in the `frontend/` folder. It lives in the Spring Boot static assets:
 
----
+- [src/main/resources/static/index.html](src/main/resources/static/index.html)
+- [src/main/resources/static/app.js](src/main/resources/static/app.js)
+- [src/main/resources/static/style.css](src/main/resources/static/style.css)
 
-## 🛠️ Technology Stack
+That UI is functional and styled, with theme toggling, plan submission, Mermaid diagrams, action steps, metrics, and a visualization dashboard. The `frontend/` directory is currently just a placeholder.
 
-| Layer | Technology | Purpose |
-| :--- | :--- | :--- |
-| **Frontend** | Vanilla JS / CSS3 / HTML5 | Ultra-responsive, theme-aware dashboard with custom SVG engines. |
-| **Orchestration** | Spring Boot 3.x (Java 17) | Core business logic, plan persistence, and API gateway. |
-| **AI Intelligence** | Python / FastAPI Bridge | High-performance LLM integration layer for Llama3. |
-| **Inference** | Ollama / Llama3 | Local, privacy-first semantic reasoning and plan generation. |
-| **Visuals** | Proprietary SVG Engine | Dynamic, zoom-aware graph and timeline rendering. |
+The second UI is the Streamlit developer console in [streamlit-ui/app.py](streamlit-ui/app.py). It is oriented toward inspection and debugging rather than end-user planning.
 
----
+## Current architecture
 
-## 📋 Detailed Prerequisites
-
-To ensure a foolproof deployment, verify your environment meets the following requirements:
-
-### 1. Core Runtime
-- **Java 17 (LTS)**: Required for the Spring Boot backend. [Download Here](https://www.oracle.com/java/technologies/downloads/).
-- **Maven 3.8+**: Handles backend dependencies and build lifecycle.
-- **Python 3.10+**: Powering the `planner/` AI bridge.
-
-### 2. LLM Infrastructure (Ollama)
-The platform is optimized for **Llama3**.
-1.  Install Ollama from [ollama.com](https://ollama.com).
-2.  Pull the required model:
-    ```bash
-    ollama pull llama3
-    ```
-3.  Ensure the Ollama service is running (usually on port 11434).
-
-### 3. Python Environment
-Navigate to the `planner/` directory and set up your environment:
-```bash
-cd planner
-python -m venv venv
-# Windows
-.\venv\Scripts\activate
-# macOS/Linux
-source venv/bin/activate
-pip install -r requirements.txt
+```mermaid
+graph TD
+    UI[Browser UI :8080] <--> Gateway[Spring Boot Gateway]
+    Gateway <--> BE[Embabel MCP Backend :9090]
+    BE --> Solver[GOAP Solver]
+    BE --> Fallback[Legacy LLM Planner]
+    Console[Streamlit Console :8501] <--> Gateway
+    Planner[Python planner/ bridge] <--> Gateway
 ```
 
----
+In practice, the backend defaults to the Embabel runtime, and plan generation falls back when the runtime throws or when external services are unavailable.
 
-## 🚀 Foolproof Installation & Setup
+## Requirements
 
-### Step 1: Clone the Repository
-```bash
-git clone https://github.com/Aditya-Khetawat/llm-goap-planner
-cd llm-goap-planner
-```
+- Java 21 JDK
+- Maven Wrapper or Maven 3.8+
+- Python 3.10+
+- Optional: Ollama for local LLM inference
 
-### Step 2: Build the Spring Boot Backend
-```bash
-# Windows
-.\mvnw.cmd clean install
-# macOS/Linux
-./mvnw clean install
-```
+If you use external planning/search integrations, set the relevant environment variables before starting the services.
 
-### Step 3: Configure Environment
-Edit `src/main/resources/application.properties` to ensure your ports are clear:
-```properties
-server.port=8080
-llm.bridge.url=http://localhost:8000
-```
+## Local setup
 
-### Step 4: Launch the AI Bridge
-Open a separate terminal:
-```bash
-cd planner
-# Activate venv as shown above
-python app.py  # Launches FastAPI on port 8000
-```
+1. Start the Embabel backend.
 
-### Step 5: Start the Platform
-```bash
-# Windows
+```powershell
+cd embabel-mcp
 .\mvnw.cmd spring-boot:run
 ```
 
----
+2. Start the main gateway from the repository root.
 
-## 📊 Dashboard Visualizations
-
-### 1. Orchestration Graph (SVG)
-- **Dynamic Branching**: Supports parallel execution paths.
-- **Interactive Nodes**: Hover to highlight execution paths.
-- **Theme-Aware**: Colors automatically adjust for high contrast in dark mode.
-
-### 2. Gantt Timeline (SVG)
-- **Automatic Scaling**: Width and height adjust dynamically to prevent label clipping.
-- **Agent Lanes**: Clearly separated rows for each autonomous agent.
-- **Real-Time Progress**: Status icons (Ready, Active, Done) update based on execution state.
-
-### 3. Execution Trace Console
-- **State Handoffs**: View "Before" and "After" world states for every action.
-- **Mint-on-Black Aesthetic**: Optimized for long-term monitoring without eye strain.
-
----
-
-## 🔧 Troubleshooting & FAQ
-
-### ❌ CUDA Initialization Failure
-If your local LLM inference fails due to GPU issues, Ollama will automatically fallback to CPU. Ensure you have at least 16GB of RAM for a smooth Llama3 experience.
-
-### ❌ Diagram Clipping
-The dashboard uses a proprietary scaling engine. If you see clipped labels, refresh the tab or use the **Zoom Controls** (coming soon) to reset the canvas viewport.
-
-### ❌ Port Conflicts
-- **8080**: Spring Boot (Frontend/API)
-- **8000**: Python AI Bridge
-- **11434**: Ollama Service
-Use `netstat -ano | findstr <port>` on Windows to identify conflicting processes.
-
----
-
-## 🤝 Project Structure
-
+```powershell
+.\mvnw.cmd spring-boot:run
 ```
+
+3. Start the Streamlit console if you want the debugging UI.
+
+```powershell
+cd streamlit-ui
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+## Current limitations
+
+- The legacy planner still uses mostly linear action chains when it falls back.
+- The system is aimed at local developer use, not production-hardening.
+- Authentication and rate limiting are not implemented.
+- Some timeline and parsing behavior is still template-driven rather than fully structured.
+
+## Project structure
+
+```text
 .
-├── src/main/java/             # Spring Boot (Gateway & Storage)
-│   └── com/ip3b/goap_planner/
-│       ├── controller/        # REST Endpoints
-│       ├── service/           # Logic & AI Integration
-│       └── visualization/     # SVG Metadata Factories
-├── src/main/resources/
-│   ├── static/                # Dashboard Frontend
-│   │   ├── app.js             # SVG Rendering & UI Logic
-│   │   └── style.css          # Design System (Tokens & Dark Mode)
-├── planner/                   # AI Intelligence Bridge (Python)
-│   ├── app.py                 # FastAPI Integration
-│   └── mermaid_generator.py   # Semantic Layout Logic
-└── pom.xml                    # Maven Project Definition
+├── src/main/java/                 Spring Boot gateway and app logic
+├── src/main/resources/static/     Main browser frontend
+├── embabel-mcp/                   Embabel planning backend
+├── planner/                       Python bridge utilities
+├── streamlit-ui/                  Streamlit debugging console
+└── docs/                          Setup, architecture, and status notes
 ```
 
----
+## Notes
 
-## 📜 License & Academic Context
-This project is an advanced research prototype developed by **Aditya Khetawat** and **Aryan Thakur**. It is designed for educational exploration into hybrid AI planning systems.
-
-**Current Version**: 2.1.0-PREMIUM | **Last Updated**: May 7, 2026
+- The most accurate project-wide status is documented in [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
+- The setup flow is documented in [docs/SETUP.md](docs/SETUP.md).
+- The root README is now aligned with the current repository layout and frontends.
