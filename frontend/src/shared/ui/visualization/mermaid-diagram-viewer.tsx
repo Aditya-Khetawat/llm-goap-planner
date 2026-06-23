@@ -1,10 +1,12 @@
 import { Alert, Box, Stack, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import type { MermaidConfig } from "mermaid";
-import mermaid from "mermaid";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { AppSkeleton } from "@shared/ui/components/skeleton";
+import { sanitizeText } from "@shared/lib/sanitize";
+
+const BLOCKED_SVG_TAGS = new Set(["script", "foreignobject", "iframe", "object", "embed", "link"]);
 
 export interface MermaidDiagramViewerProps {
   diagram: string;
@@ -20,7 +22,40 @@ const defaultConfig: MermaidConfig = {
   fontFamily: "Inter, Segoe UI, Arial, sans-serif",
 };
 
-mermaid.initialize(defaultConfig);
+function sanitizeSvg(svgElement: Element): SVGElement {
+  if (!(svgElement instanceof SVGElement)) {
+    throw new Error("Mermaid output was not a valid SVG document.");
+  }
+
+  const elements = Array.from(svgElement.querySelectorAll("*")).reverse();
+
+  for (const element of elements) {
+    const tagName = element.tagName.toLowerCase();
+
+    if (BLOCKED_SVG_TAGS.has(tagName)) {
+      element.remove();
+      continue;
+    }
+
+    for (const attribute of Array.from(element.attributes)) {
+      const attributeName = attribute.name.toLowerCase();
+      const attributeValue = attribute.value.trim().toLowerCase();
+
+      if (attributeName.startsWith("on")) {
+        element.removeAttribute(attribute.name);
+      }
+
+      if (
+        (attributeName === "href" || attributeName === "xlink:href" || attributeName === "src") &&
+        attributeValue.startsWith("javascript:")
+      ) {
+        element.removeAttribute(attribute.name);
+      }
+    }
+  }
+
+  return svgElement;
+}
 
 export function MermaidDiagramViewer({
   diagram,
@@ -82,8 +117,9 @@ export function MermaidDiagramViewer({
       setErrorMessage(null);
 
       try {
-        mermaid.initialize(resolvedConfig);
-        const { svg } = await mermaid.render(`mermaid-${id}`, diagram);
+        const mermaidModule = await import("mermaid");
+        mermaidModule.default.initialize(resolvedConfig);
+        const { svg } = await mermaidModule.default.render(`mermaid-${sanitizeText(id)}`, diagram);
 
         if (!isActive || !containerRef.current) {
           return;
@@ -91,7 +127,7 @@ export function MermaidDiagramViewer({
 
         const parsed = new DOMParser().parseFromString(svg, "image/svg+xml");
         const svgElement = parsed.documentElement;
-        const importedSvg = document.importNode(svgElement, true);
+        const importedSvg = document.importNode(sanitizeSvg(svgElement), true);
 
         containerRef.current.replaceChildren(importedSvg);
         setLoading(false);
@@ -141,6 +177,7 @@ export function MermaidDiagramViewer({
         component="div"
         aria-label={title}
         role="img"
+        aria-busy={loading}
         sx={{
           overflowX: "auto",
           "& svg": {

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { ROUTE_PATHS } from "@shared/constants/routes";
@@ -14,9 +14,8 @@ export function useGoalInputPageController() {
   const navigate = useNavigate();
   const form = useGoalForm();
   const mutation = useGeneratePlanMutation();
-
-  const toolOptions = useMemo(() => PLANNER_TOOL_OPTIONS, []);
-  const providerOptions = useMemo(() => PLANNER_PROVIDER_OPTIONS, []);
+  const toolOptions = PLANNER_TOOL_OPTIONS;
+  const providerOptions = PLANNER_PROVIDER_OPTIONS;
 
   const submit = useCallback(
     form.handleSubmit((values) => {

@@ -13,7 +13,9 @@ export function useGeneratePlanMutation() {
   const showSnackbar = useAppStore((state) => state.showSnackbar);
 
   return useMutation({
+    mutationKey: ["planner", "generate-plan"],
     mutationFn: (request: PlannerGeneratePlanRequest) => submitPlannerGoal(request),
+    retry: 0,
     onMutate: (request) => {
       beginExecution(request);
     },

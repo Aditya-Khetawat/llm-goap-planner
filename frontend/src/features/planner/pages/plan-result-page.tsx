@@ -1,11 +1,10 @@
-import { Stack, Typography } from "@mui/material";
-
 import { EmptyState } from "@shared/ui/feedback/empty-state";
 import { PageContainer } from "@shared/ui/layout/page-container";
 import { SectionContainer } from "@shared/ui/layout/section-container";
 import { PlannerErrorState } from "@features/planner/components/planner-error-state";
 import { PlannerLoadingState } from "@features/planner/components/planner-loading-state";
-import { PlannerDashboard } from "@features/planner/dashboard/planner-dashboard";
+import { MemoizedPlannerDashboard } from "@features/planner/dashboard/planner-dashboard";
+import { PlannerPageHeader } from "@features/planner/components/planner-page-header";
 import { usePlanResultPageController } from "@features/planner/hooks/use-plan-result-page-controller";
 import { APP_NAME } from "@shared/constants/app";
 
@@ -16,17 +15,11 @@ export function PlanResultPage() {
   return (
     <PageContainer maxWidth="xl">
       <SectionContainer sx={{ py: { xs: 3, md: 6 } }}>
-        <Stack spacing={2} sx={{ mb: 4 }}>
-          <Typography variant="overline" color="text.secondary">
-            Planner
-          </Typography>
-          <Typography variant="h3" component="h1" fontWeight={800}>
-            Plan result
-          </Typography>
-          <Typography variant="body1" color="text.secondary" maxWidth={760}>
-            Results are read from the backend response and rendered without unsafe HTML.
-          </Typography>
-        </Stack>
+        <PlannerPageHeader
+          eyebrow="Planner"
+          title="Plan result"
+          description="Results are read from the backend response and rendered without unsafe HTML."
+        />
 
         {isLoading ? <PlannerLoadingState /> : null}
 
@@ -48,7 +41,9 @@ export function PlanResultPage() {
           />
         ) : null}
 
-        {!isLoading && status === "success" && result ? <PlannerDashboard result={result} /> : null}
+        {!isLoading && status === "success" && result ? (
+          <MemoizedPlannerDashboard result={result} />
+        ) : null}
       </SectionContainer>
     </PageContainer>
   );

@@ -2,6 +2,7 @@ import type {
   PlannerGeneratePlanResponse,
   PlannerMetadataItem,
 } from "@features/planner/model/planner.models";
+import { sanitizeText, truncateText } from "@shared/lib/sanitize";
 
 export interface PlannerTimelineItem {
   id: string;
@@ -25,10 +26,10 @@ export function formatDateTime(value: string): string {
 
 export function buildPlannerMetadata(result: PlannerGeneratePlanResponse): PlannerMetadataItem[] {
   return [
-    { label: "Status", value: result.status },
-    { label: "Source", value: result.source },
+    { label: "Status", value: sanitizeText(result.status) },
+    { label: "Source", value: sanitizeText(result.source) },
     { label: "Generated", value: formatDateTime(result.generatedAt) },
-    { label: "Classification", value: result.classification ?? "N/A" },
+    { label: "Classification", value: sanitizeText(result.classification ?? "N/A") },
   ];
 }
 
@@ -52,10 +53,13 @@ export function buildPlannerTimeline(result: PlannerGeneratePlanResponse): Plann
 
     return {
       id: `${step.order}-${step.title}`,
-      title: step.title,
-      agent: matchingAssignment?.agent ?? step.agent,
-      details: step.details || matchingAssignment?.capability || "No additional details available.",
-      status: matchingAssignment?.status ?? (step.output ? "Complete" : "Ready"),
+      title: truncateText(step.title, 120),
+      agent: sanitizeText(matchingAssignment?.agent ?? step.agent),
+      details: truncateText(
+        step.details || matchingAssignment?.capability || "No additional details available.",
+        500,
+      ),
+      status: sanitizeText(matchingAssignment?.status ?? (step.output ? "Complete" : "Ready")),
     };
   });
 }

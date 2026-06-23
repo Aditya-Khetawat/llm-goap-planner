@@ -3,6 +3,7 @@ import { Box, Grid, Stack, Typography } from "@mui/material";
 import { PageContainer } from "@shared/ui/layout/page-container";
 import { SectionContainer } from "@shared/ui/layout/section-container";
 import { GoalSubmissionForm } from "@features/planner/components/goal-submission-form";
+import { PlannerPageHeader } from "@features/planner/components/planner-page-header";
 import { useGoalInputPageController } from "@features/planner/hooks/use-goal-input-page-controller";
 
 export function GoalInputPage() {
@@ -11,18 +12,11 @@ export function GoalInputPage() {
   return (
     <PageContainer maxWidth="lg">
       <SectionContainer sx={{ py: { xs: 3, md: 6 } }}>
-        <Stack spacing={2} sx={{ mb: 4 }}>
-          <Typography variant="overline" color="text.secondary">
-            Planner
-          </Typography>
-          <Typography variant="h3" component="h1" fontWeight={800}>
-            Goal input
-          </Typography>
-          <Typography variant="body1" color="text.secondary" maxWidth={760}>
-            Enter a goal, choose the preferred provider, and select the agents that should be
-            available for the backend planner.
-          </Typography>
-        </Stack>
+        <PlannerPageHeader
+          eyebrow="Planner"
+          title="Goal input"
+          description="Enter a goal, choose the preferred provider, and select the agents that should be available for the backend planner."
+        />
 
         <Grid container spacing={3}>
           <Grid item xs={12} lg={8}>

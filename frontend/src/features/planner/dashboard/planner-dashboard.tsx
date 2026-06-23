@@ -1,6 +1,6 @@
 import { Box, Divider, Grid, Stack, Typography } from "@mui/material";
 import type { ReactNode, SyntheticEvent } from "react";
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 
 import { AppCard, AppCardContent, AppCardHeader } from "@shared/ui/components/card";
 import { AppTab, AppTabs } from "@shared/ui/components/tabs";
@@ -14,6 +14,7 @@ import {
   buildPlannerMetrics,
   buildPlannerTimeline,
 } from "@features/planner/dashboard/planner-dashboard.utils";
+import { sanitizeText } from "@shared/lib/sanitize";
 
 interface PlannerDashboardProps {
   result: PlannerGeneratePlanResponse;
@@ -108,7 +109,7 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
           <Grid item xs={12} lg={8}>
             <PlanCard title="Plan summary" subtitle={result.goal}>
               <Typography variant="body1" color="text.secondary">
-                {result.summary}
+                {sanitizeText(result.summary)}
               </Typography>
             </PlanCard>
           </Grid>
@@ -173,16 +174,16 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
             <PlanCard title="Execution details" subtitle="Backend payload preserved as-is">
               <Stack spacing={1.5}>
                 <Typography variant="body2" color="text.secondary">
-                  Status: {result.status}
+                  Status: {sanitizeText(result.status)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Source: {result.source}
+                  Source: {sanitizeText(result.source)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Classification: {result.classification ?? "N/A"}
+                  Classification: {sanitizeText(result.classification ?? "N/A")}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Generated at: {result.generatedAt}
+                  Generated at: {sanitizeText(result.generatedAt)}
                 </Typography>
               </Stack>
             </PlanCard>
@@ -226,3 +227,5 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
     </Stack>
   );
 }
+
+export const MemoizedPlannerDashboard = memo(PlannerDashboard);

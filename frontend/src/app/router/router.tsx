@@ -1,9 +1,20 @@
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
+import { lazy } from "react";
 
 import { ROUTE_PATHS } from "@shared/constants/routes";
 import { GlobalLayout } from "@app/layouts/global-layout";
-import { GoalInputPage } from "@features/planner/pages/goal-input-page";
-import { PlanResultPage } from "@features/planner/pages/plan-result-page";
+
+const GoalInputPage = lazy(() =>
+  import("@features/planner/pages/goal-input-page").then((module) => ({
+    default: module.GoalInputPage,
+  })),
+);
+
+const PlanResultPage = lazy(() =>
+  import("@features/planner/pages/plan-result-page").then((module) => ({
+    default: module.PlanResultPage,
+  })),
+);
 
 const appRouter = createBrowserRouter([
   {

@@ -1,4 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useMemo } from "react";
 
 import { ROUTE_PATHS } from "@shared/constants/routes";
 import { useBoolean } from "@shared/hooks/use-boolean";
@@ -10,18 +11,21 @@ export function GlobalLayout() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const navigationItems: SidebarItem[] = [
-    {
-      label: "Goal Input",
-      selected: location.pathname === ROUTE_PATHS.planner,
-      onClick: () => navigate(ROUTE_PATHS.planner),
-    },
-    {
-      label: "Plan Result",
-      selected: location.pathname === ROUTE_PATHS.plannerResult,
-      onClick: () => navigate(ROUTE_PATHS.plannerResult),
-    },
-  ];
+  const navigationItems: SidebarItem[] = useMemo(
+    () => [
+      {
+        label: "Goal Input",
+        selected: location.pathname === ROUTE_PATHS.planner,
+        onClick: () => navigate(ROUTE_PATHS.planner),
+      },
+      {
+        label: "Plan Result",
+        selected: location.pathname === ROUTE_PATHS.plannerResult,
+        onClick: () => navigate(ROUTE_PATHS.plannerResult),
+      },
+    ],
+    [location.pathname, navigate],
+  );
 
   return (
     <AppShell

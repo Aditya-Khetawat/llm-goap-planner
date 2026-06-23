@@ -1,6 +1,7 @@
 import { List, ListItem, ListItemText } from "@mui/material";
 
 import type { PlanStep } from "@shared/types/api";
+import { sanitizeText } from "@shared/lib/sanitize";
 
 interface PlanStepsProps {
   steps: PlanStep[];
@@ -17,8 +18,8 @@ export function PlanSteps({ steps }: PlanStepsProps) {
           sx={{ px: 0 }}
         >
           <ListItemText
-            primary={`${step.order}. ${step.title}`}
-            secondary={step.details || step.agent}
+            primary={`${step.order}. ${sanitizeText(step.title)}`}
+            secondary={sanitizeText(step.details || step.agent)}
             secondaryTypographyProps={{ component: "div" }}
           />
         </ListItem>

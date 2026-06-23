@@ -34,7 +34,6 @@ export function usePlanResultPageController() {
     status,
     errorMessage,
     isLoading: status === "loading" || mutation.isPending,
-    hasResult: Boolean(result),
     handleRetry,
     handleStartOver,
   };
