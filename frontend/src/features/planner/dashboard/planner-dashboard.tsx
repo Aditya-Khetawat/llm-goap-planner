@@ -1,4 +1,4 @@
-import { Box, Divider, Grid, Stack, Typography } from "@mui/material";
+import { Box, Divider, Grid, Stack, Typography, Chip } from "@mui/material";
 import type { ReactNode, SyntheticEvent } from "react";
 import { memo, useMemo, useState } from "react";
 
@@ -91,16 +91,13 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
 
       <DashboardTabPanel value={tabValue} index={0}>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={4}>
             {metricCard("Total steps", metrics.totalSteps)}
           </Grid>
-          <Grid item xs={12} md={3}>
-            {metricCard("Assignments", metrics.totalAssignments)}
-          </Grid>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={4}>
             {metricCard("Active agents", metrics.activeAgents)}
           </Grid>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={4}>
             {metricCard("Completed steps", metrics.completedSteps)}
           </Grid>
         </Grid>
@@ -139,7 +136,7 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
         <AppCard variant="outlined">
           <AppCardHeader
             title="Action timeline"
-            subheader="Sequence of backend-returned steps and assignments"
+            subheader="Sequence of backend-returned steps"
           />
           <AppCardContent>
             <Stack spacing={2}>
@@ -182,9 +179,6 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
                 <Typography variant="body2" color="text.secondary">
                   Classification: {sanitizeText(result.classification ?? "N/A")}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Generated at: {sanitizeText(result.generatedAt)}
-                </Typography>
               </Stack>
             </PlanCard>
           </Grid>
@@ -202,21 +196,86 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
           <AppCard variant="outlined" sx={{ mt: 3 }}>
             <AppCardHeader
               title="Trace snapshot"
-              subheader="Execution trace data from the backend"
+              subheader="Execution trace data from the backend GOAP planner"
             />
             <AppCardContent>
-              <Stack spacing={2}>
+              <Stack spacing={3}>
                 {result.trace.map((entry, index) => (
-                  <Box key={`${entry.action ?? "trace"}-${index}`}>
-                    <Typography variant="subtitle2" fontWeight={700}>
-                      {entry.action ?? `Step ${index + 1}`}
+                  <Box key={`${entry.action}-${index}`} sx={{ p: 2.5, borderRadius: 2, border: 1, borderColor: "divider" }}>
+                    <Typography variant="subtitle1" fontWeight={700} color="primary" gutterBottom>
+                      Action: {entry.action}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Before: {JSON.stringify(entry.state_before)}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      After: {JSON.stringify(entry.state_after)}
-                    </Typography>
+
+                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="body2" fontWeight={600} gutterBottom>
+                          Preconditions Checked
+                        </Typography>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+                          {entry.preconditions_checked?.length > 0 ? (
+                            entry.preconditions_checked.map((cond) => (
+                              <Chip key={cond} label={cond} size="small" variant="outlined" color="primary" />
+                            ))
+                          ) : (
+                            <Typography variant="caption" color="text.disabled">None</Typography>
+                          )}
+                        </Stack>
+
+                        {entry.missing_preconditions?.length > 0 && (
+                          <>
+                            <Typography variant="body2" fontWeight={600} color="error" gutterBottom>
+                              Missing Preconditions
+                            </Typography>
+                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+                              {entry.missing_preconditions.map((cond) => (
+                                <Chip key={cond} label={cond} size="small" color="error" variant="outlined" />
+                              ))}
+                            </Stack>
+                          </>
+                        )}
+
+                        <Typography variant="body2" fontWeight={600} gutterBottom>
+                          Effects Applied
+                        </Typography>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                          {entry.effects_applied?.length > 0 ? (
+                            entry.effects_applied.map((eff) => (
+                              <Chip key={eff} label={eff} size="small" variant="outlined" color="success" />
+                            ))
+                          ) : (
+                            <Typography variant="caption" color="text.disabled">None</Typography>
+                          )}
+                        </Stack>
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="body2" fontWeight={600} gutterBottom>
+                          State Before Action
+                        </Typography>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+                          {entry.state_before?.length > 0 ? (
+                            entry.state_before.map((state) => (
+                              <Chip key={state} label={state} size="small" />
+                            ))
+                          ) : (
+                            <Typography variant="caption" color="text.disabled">Empty</Typography>
+                          )}
+                        </Stack>
+
+                        <Typography variant="body2" fontWeight={600} gutterBottom>
+                          State After Action
+                        </Typography>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                          {entry.state_after?.length > 0 ? (
+                            entry.state_after.map((state) => (
+                              <Chip key={state} label={state} size="small" color="secondary" />
+                            ))
+                          ) : (
+                            <Typography variant="caption" color="text.disabled">Empty</Typography>
+                          )}
+                        </Stack>
+                      </Grid>
+                    </Grid>
                   </Box>
                 ))}
               </Stack>
@@ -229,3 +288,4 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
 }
 
 export const MemoizedPlannerDashboard = memo(PlannerDashboard);
+

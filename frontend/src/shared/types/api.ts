@@ -8,8 +8,6 @@ export interface ApiErrorResponse {
 
 export interface PlanGenerationRequest {
   goal: string;
-  tools: string[];
-  provider?: string;
 }
 
 export interface PlanStep {
@@ -20,31 +18,23 @@ export interface PlanStep {
   output: string | null;
 }
 
-export interface PlanAssignment {
-  stepTitle: string;
-  agent: string;
-  capability: string;
-  status: string;
-  handoffTo: string;
-  rationale?: string;
-}
-
 export interface PlanTraceEntry {
-  action?: string;
-  state_before?: unknown;
-  state_after?: unknown;
+  action: string;
+  state_before: string[];
+  preconditions_checked: string[];
+  missing_preconditions: string[];
+  effects_applied: string[];
+  state_after: string[];
 }
 
 export interface PlanResponse {
   goal: string;
-  summary: string;
+  classification: string;
   status: string;
   steps: PlanStep[];
-  assignments: PlanAssignment[];
+  trace: PlanTraceEntry[];
   mermaidDiagram: string;
-  ganttDiagram: string;
+  summary: string;
   source: string;
-  classification?: string | null;
-  trace?: PlanTraceEntry[];
-  generatedAt: string;
 }
+
