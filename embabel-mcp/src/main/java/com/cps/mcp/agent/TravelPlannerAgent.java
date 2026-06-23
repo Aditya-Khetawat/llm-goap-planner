@@ -37,6 +37,23 @@ public class TravelPlannerAgent {
     private static final BigDecimal DEFAULT_TRANSPORT_RATE = new BigDecimal("30.00");
     private static final BigDecimal DEFAULT_MISC_RATE = new BigDecimal("15.00");
 
+    private static final java.util.Set<String> STARTER_VERBS = java.util.Set.of(
+        "plan", "travel", "find", "go", "create", "book", "help", "get", "organize", "make", "i", "we",
+        "me", "us", "him", "her", "them", "it", "my", "your", "his", "their"
+    );
+
+    private static final java.util.Set<String> CONNECTIVE_WORDS = java.util.Set.of(
+        "de", "di", "of", "and", "the", "la", "el", "le"
+    );
+
+    private static final java.util.Set<String> STOP_WORDS = java.util.Set.of(
+        "for", "with", "on", "next", "this", "in", "to", "tomorrow", "today", "winter", "summer", "spring", "autumn", "fall", "week", "month", "year", "days", "day", "style", "budget", "luxury", "standard", "family", "solo", "adventure", "business", "leisure"
+    );
+
+    private static final java.util.Set<String> DISALLOWED_DESTINATIONS = java.util.Set.of(
+        "trip", "weekend", "vacation", "holiday", "itinerary", "plan", "flight", "hotel", "somewhere", "place", "city", "country", "destination", "me", "us", "him", "her", "them", "it", "my", "your", "his", "their", "a", "an", "the", "next", "week", "month", "year", "day", "days"
+    );
+
     private final SearchProvider searchProvider;
     private final BudgetService budgetService;
     private final WeatherProvider weatherProvider;
@@ -110,103 +127,145 @@ public class TravelPlannerAgent {
         String normalized = cleaned.replaceAll("[.,?!]$", "");
         
         String[] tokens = normalized.split(" ");
+        if (tokens.length == 0) {
+            throw new IllegalArgumentException("User input prompt contains no tokens");
+        }
+
+        // Search for the first occurrence of "to" or "in" that is not the first token (or is a valid separator)
         int keywordIdx = -1;
-        
-        // 1. Search from right to left for "in" or "to" case-insensitively
-        for (int i = tokens.length - 2; i >= 0; i--) {
-            String t = tokens[i].toLowerCase();
-            if (t.equals("in") || t.equals("to")) {
-                keywordIdx = i;
-                break;
+        for (int i = 0; i < tokens.length; i++) {
+            String tokenLower = tokens[i].toLowerCase();
+            if (tokenLower.equals("to") || tokenLower.equals("in")) {
+                if (i < tokens.length - 1) {
+                    keywordIdx = i;
+                    break;
+                }
             }
         }
-        
-        if (keywordIdx != -1 && keywordIdx < tokens.length - 1) {
-            // Gather consecutive capitalized words starting from the match location
+
+        if (keywordIdx != -1) {
             StringBuilder sb = new StringBuilder();
             for (int j = keywordIdx + 1; j < tokens.length; j++) {
                 String word = tokens[j];
-                if (word.isEmpty()) continue;
+                String wordLower = word.toLowerCase().replaceAll("[^a-z]", "");
                 
-                char firstChar = word.charAt(0);
-                if (Character.isUpperCase(firstChar)) {
-                    if (sb.length() > 0) sb.append(" ");
-                    sb.append(word.replaceAll("[^a-zA-Z]", ""));
-                } else {
-                    // Check if it's a connective/preposition and there is a capitalized word next
-                    String lowerWord = word.toLowerCase();
-                    if ((lowerWord.equals("de") || lowerWord.equals("di") || lowerWord.equals("of") || 
-                         lowerWord.equals("and") || lowerWord.equals("the") || lowerWord.equals("la") || 
-                         lowerWord.equals("el") || lowerWord.equals("le")) && 
-                        j + 1 < tokens.length && !tokens[j+1].isEmpty() && Character.isUpperCase(tokens[j+1].charAt(0))) {
-                        if (sb.length() > 0) sb.append(" ");
-                        sb.append(word.replaceAll("[^a-zA-Z]", ""));
-                    } else {
-                        break;
-                    }
+                if (STOP_WORDS.contains(wordLower)) {
+                    break;
                 }
+                
+                if (sb.length() > 0) sb.append(" ");
+                sb.append(word.replaceAll("[^a-zA-Z]", ""));
             }
-            if (sb.length() > 0) {
-                String result = sb.toString();
-                if (isValidDestination(result)) {
-                    return result;
-                }
+            
+            String candidate = sb.toString().trim();
+            if (isValidDestination(candidate)) {
+                return titleCase(candidate);
             }
         }
-        
-        // 2. Fallback: scan all tokens and find first capitalized token sequence
-        for (int i = 0; i < tokens.length; i++) {
-            String word = tokens[i];
-            if (word.isEmpty()) continue;
-            char firstChar = word.charAt(0);
-            if (Character.isUpperCase(firstChar)) {
-                // Skip common sentence starters if it's the first word
-                if (i == 0 && (word.equalsIgnoreCase("Plan") || word.equalsIgnoreCase("Travel") || 
-                               word.equalsIgnoreCase("Find") || word.equalsIgnoreCase("Go") ||
-                               word.equalsIgnoreCase("Create") || word.equalsIgnoreCase("Book") ||
-                               word.equalsIgnoreCase("Help") || word.equalsIgnoreCase("I"))) {
-                    continue;
-                }
-                StringBuilder tempSb = new StringBuilder();
-                int j = i;
-                while (j < tokens.length) {
-                    String nextWord = tokens[j];
-                    if (nextWord.isEmpty()) break;
-                    if (Character.isUpperCase(nextWord.charAt(0))) {
-                        if (tempSb.length() > 0) tempSb.append(" ");
-                        tempSb.append(nextWord.replaceAll("[^a-zA-Z]", ""));
-                        j++;
-                    } else {
-                        // Check if it's a connective/preposition and there is a capitalized word next
-                        String lowerWord = nextWord.toLowerCase();
-                        if ((lowerWord.equals("de") || lowerWord.equals("di") || lowerWord.equals("of") || 
-                             lowerWord.equals("and") || lowerWord.equals("the") || lowerWord.equals("la") || 
-                             lowerWord.equals("el") || lowerWord.equals("le")) && 
-                            j + 1 < tokens.length && !tokens[j+1].isEmpty() && Character.isUpperCase(tokens[j+1].charAt(0))) {
-                            if (tempSb.length() > 0) tempSb.append(" ");
-                            tempSb.append(nextWord.replaceAll("[^a-zA-Z]", ""));
-                            j++;
-                        } else {
-                            break;
-                        }
-                    }
-                }
-                String candidate = tempSb.toString();
-                if (isValidDestination(candidate)) {
-                    return candidate;
-                }
-                i = j;
+
+        // Fallback: If no "to" or "in" keyword found, filter out starter verbs
+        int startIdx = 0;
+        while (startIdx < tokens.length) {
+            String wordLower = tokens[startIdx].toLowerCase().replaceAll("[^a-z]", "");
+            if (STARTER_VERBS.contains(wordLower) || STOP_WORDS.contains(wordLower) || CONNECTIVE_WORDS.contains(wordLower) || wordLower.equals("a") || wordLower.equals("an")) {
+                startIdx++;
+            } else {
+                break;
             }
         }
-        
+
+        StringBuilder sb = new StringBuilder();
+        for (int j = startIdx; j < tokens.length; j++) {
+            String word = tokens[j];
+            String wordLower = word.toLowerCase().replaceAll("[^a-z]", "");
+            if (STOP_WORDS.contains(wordLower)) {
+                break;
+            }
+            if (sb.length() > 0) sb.append(" ");
+            sb.append(word.replaceAll("[^a-zA-Z]", ""));
+        }
+
+        String candidate = sb.toString().trim();
+        if (isValidDestination(candidate)) {
+            return titleCase(candidate);
+        }
+
         throw new IllegalArgumentException("Unknown destination in user input: " + prompt);
+    }
+
+    private String titleCase(String input) {
+        if (input == null || input.isBlank()) return input;
+        String[] words = input.split(" ");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < words.length; i++) {
+            String word = words[i];
+            if (word.isEmpty()) continue;
+            if (i > 0) sb.append(" ");
+            
+            String lower = word.toLowerCase();
+            if (i > 0 && (lower.equals("de") || lower.equals("di") || lower.equals("of") || 
+                          lower.equals("and") || lower.equals("the") || lower.equals("la") || 
+                          lower.equals("el") || lower.equals("le"))) {
+                sb.append(lower);
+            } else {
+                sb.append(Character.toUpperCase(word.charAt(0)))
+                  .append(word.substring(1).toLowerCase());
+            }
+        }
+        return sb.toString();
     }
     
     private boolean isValidDestination(String dest) {
         if (dest == null || dest.isBlank()) {
             return false;
         }
+        String clean = dest.trim().toLowerCase();
+        if (DISALLOWED_DESTINATIONS.contains(clean)) {
+            return false;
+        }
         return dest.length() >= 2 && dest.length() <= 50 && dest.matches(".*[a-zA-Z].*");
+    }
+
+    @Action(description = "Classify travel intent from user input")
+    public TravelIntent classifyIntent(UserInput input) {
+        logger.info("classifyIntent: Classifying user intent");
+        String content = getUserInputContent(input);
+        if (content == null) {
+            content = "";
+        }
+        String normalized = content.toLowerCase();
+        
+        // Weather intent keywords
+        if (normalized.contains("weather") || normalized.contains("forecast") || 
+            normalized.contains("rain") || normalized.contains("temperature") || 
+            normalized.contains("sunny") || normalized.contains("climate") ||
+            normalized.contains("snow") || normalized.contains("wind") ||
+            normalized.contains("condition")) {
+            logger.info("classifyIntent: Detected WEATHER intent");
+            return TravelIntent.WEATHER;
+        }
+        
+        // Budget intent keywords
+        if (normalized.contains("budget") || normalized.contains("cost") || 
+            normalized.contains("price") || normalized.contains("expense") || 
+            normalized.contains("estimate") || normalized.contains("how much") ||
+            normalized.contains("spending") || normalized.contains("afford")) {
+            logger.info("classifyIntent: Detected BUDGET intent");
+            return TravelIntent.BUDGET;
+        }
+        
+        // Travel plan intent keywords
+        if (normalized.contains("plan") || normalized.contains("trip") || 
+            normalized.contains("vacation") || normalized.contains("itinerary") || 
+            normalized.contains("weekend") || normalized.contains("holiday") ||
+            normalized.contains("travel") || normalized.contains("create itinerary")) {
+            logger.info("classifyIntent: Detected TRAVEL_PLAN intent");
+            return TravelIntent.TRAVEL_PLAN;
+        }
+        
+        // Default to search for general information queries
+        logger.info("classifyIntent: Defaulting to SEARCH intent");
+        return TravelIntent.SEARCH;
     }
 
     @Action(description = "Search travel details for destination")
@@ -402,5 +461,55 @@ public class TravelPlannerAgent {
         logger.info("TravelPlanReport: Composed final report successfully");
         logger.info("Goal Achieved: Planning completed");
         return new TravelPlanReport(composedOutput.toString());
+    }
+
+    // --- Goal-Specific Composers ---
+
+    @Action(description = "Compose weather information report")
+    @AchievesGoal(description = "Provide weather forecast")
+    public WeatherReportResult composeWeatherInfo(WeatherReport weatherData) {
+        logger.info("composeWeatherInfo: Composing weather information report");
+        
+        if (weatherData == null) {
+            logger.warn("composeWeatherInfo: Weather data is null");
+            return new WeatherReportResult(null, "Unknown");
+        }
+        
+        String destination = weatherData.getLocation();
+        WeatherReportResult result = new WeatherReportResult(weatherData, destination);
+        logger.info("Goal Achieved: Weather forecast provided for {}", destination);
+        return result;
+    }
+
+    @Action(description = "Compose budget estimate report")
+    @AchievesGoal(description = "Provide budget estimate")
+    public BudgetReportResult composeBudgetInfo(BudgetEstimate budgetData) {
+        logger.info("composeBudgetInfo: Composing budget estimate report");
+        
+        if (budgetData == null) {
+            logger.warn("composeBudgetInfo: Budget data is null");
+            return new BudgetReportResult(null, "Unknown");
+        }
+        
+        String destination = budgetData.getDestination();
+        BudgetReportResult result = new BudgetReportResult(budgetData, destination);
+        logger.info("Goal Achieved: Budget estimate provided for {}", destination);
+        return result;
+    }
+
+    @Action(description = "Compose destination information report")
+    @AchievesGoal(description = "Provide destination information")
+    public SearchReportResult composeDestinationInfo(SearchResponse searchData) {
+        logger.info("composeDestinationInfo: Composing destination information report");
+        
+        if (searchData == null || searchData.getResults().isEmpty()) {
+            logger.warn("composeDestinationInfo: Search data is null or empty");
+            return new SearchReportResult(null, "Unknown");
+        }
+        
+        String destination = searchData.getQuery() != null ? searchData.getQuery() : "Unknown";
+        SearchReportResult result = new SearchReportResult(searchData, destination);
+        logger.info("Goal Achieved: Destination information provided for {}", destination);
+        return result;
     }
 }

@@ -7,7 +7,7 @@ import { PlannerPageHeader } from "@features/planner/components/planner-page-hea
 import { useGoalInputPageController } from "@features/planner/hooks/use-goal-input-page-controller";
 
 export function GoalInputPage() {
-  const { form, toolOptions, providerOptions, submit, isSubmitting } = useGoalInputPageController();
+  const { form, submit, isSubmitting } = useGoalInputPageController();
 
   return (
     <PageContainer maxWidth="lg">
@@ -15,7 +15,7 @@ export function GoalInputPage() {
         <PlannerPageHeader
           eyebrow="Planner"
           title="Goal input"
-          description="Enter a goal, choose the preferred provider, and select the agents that should be available for the backend planner."
+          description="Enter a goal for the backend planner to execute under the Embabel GOAP runtime."
         />
 
         <Grid container spacing={3}>
@@ -25,8 +25,6 @@ export function GoalInputPage() {
               register={form.register}
               errors={form.formState.errors}
               isSubmitting={isSubmitting}
-              toolOptions={toolOptions}
-              providerOptions={providerOptions}
               onSubmit={submit}
             />
           </Grid>
@@ -41,8 +39,7 @@ export function GoalInputPage() {
                   Validation rules
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  The form validates the goal, provider, and selected agents before any request
-                  reaches the backend.
+                  The form validates that the goal is entered correctly and has at least 3 characters before any request reaches the backend.
                 </Typography>
               </Stack>
             </Box>
@@ -52,3 +49,4 @@ export function GoalInputPage() {
     </PageContainer>
   );
 }
+
