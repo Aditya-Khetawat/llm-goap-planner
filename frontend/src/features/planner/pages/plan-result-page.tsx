@@ -15,11 +15,13 @@ export function PlanResultPage() {
   return (
     <PageContainer maxWidth="xl">
       <SectionContainer sx={{ py: { xs: 3, md: 6 } }}>
-        <PlannerPageHeader
-          eyebrow="Planner"
-          title="Plan result"
-          description="Results are read from the backend response and rendered without unsafe HTML."
-        />
+        {status !== "success" ? (
+          <PlannerPageHeader
+            eyebrow="Planner"
+            title="Plan result"
+            description="Results are read from the backend response and rendered without unsafe HTML."
+          />
+        ) : null}
 
         {isLoading ? <PlannerLoadingState /> : null}
 
