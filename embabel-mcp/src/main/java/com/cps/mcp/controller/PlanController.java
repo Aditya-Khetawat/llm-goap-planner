@@ -352,14 +352,13 @@ public class PlanController {
         // Restored compliance with stable 8-field response contract (no classifiedIntent)
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("goal", goalStr);
-        response.put("summary", summary);
-        response.put("status", "Ready");
-        response.put("steps", steps);
-        response.put("assignments", new ArrayList<>());
-        response.put("flowchart", mermaidDiagram);
-        response.put("gantt", "");
         response.put("classification", "embabel_runtime");
+        response.put("status", "COMPLETED");
+        response.put("steps", steps);
         response.put("trace", trace);
+        response.put("mermaidDiagram", mermaidDiagram);
+        response.put("summary", summary);
+        response.put("source", "EMBABEL");
 
         return response;
     }

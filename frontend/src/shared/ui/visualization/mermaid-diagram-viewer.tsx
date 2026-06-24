@@ -4,7 +4,6 @@ import type { MermaidConfig } from "mermaid";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { AppSkeleton } from "@shared/ui/components/skeleton";
-import { sanitizeText } from "@shared/lib/sanitize";
 
 const BLOCKED_SVG_TAGS = new Set(["script", "foreignobject", "iframe", "object", "embed", "link"]);
 
@@ -73,27 +72,23 @@ export function MermaidDiagramViewer({
     () => ({
       ...defaultConfig,
       ...config,
-      theme: theme.palette.mode === "dark" ? "dark" : "default",
+      theme: "base",
       themeVariables: {
-        primaryColor: theme.palette.primary.main,
-        primaryTextColor: theme.palette.text.primary,
-        primaryBorderColor: theme.palette.primary.dark,
-        lineColor: theme.palette.divider,
-        secondaryColor: theme.palette.background.paper,
-        tertiaryColor: theme.palette.background.default,
+        background: "transparent",
+        mainBkg: theme.palette.mode === "dark" ? "#1a1b23" : "#f4f5f8",
+        nodeBorder: theme.palette.mode === "dark" ? "#3f4257" : "#d1d5db",
+        textColor: theme.palette.text.primary,
+        lineColor: theme.palette.mode === "dark" ? "#8e91a8" : "#4b5563",
+        edgeLabelBackground: theme.palette.mode === "dark" ? "#111218" : "#ffffff",
         fontFamily: "Inter, Segoe UI, Arial, sans-serif",
         ...(config?.themeVariables ?? {}),
       },
     }),
     [
       config,
-      theme.palette.background.default,
-      theme.palette.background.paper,
-      theme.palette.divider,
       theme.palette.mode,
-      theme.palette.primary.dark,
-      theme.palette.primary.main,
       theme.palette.text.primary,
+      theme.palette.text.secondary,
     ],
   );
 
@@ -119,7 +114,9 @@ export function MermaidDiagramViewer({
       try {
         const mermaidModule = await import("mermaid");
         mermaidModule.default.initialize(resolvedConfig);
-        const { svg } = await mermaidModule.default.render(`mermaid-${sanitizeText(id)}`, diagram);
+        const cleanId = id.replace(/:/g, "").replace(/[^a-zA-Z0-9-]/g, "");
+        const uniqueRenderId = `mermaid-${cleanId}-${Math.random().toString(36).substring(2, 9)}`;
+        const { svg } = await mermaidModule.default.render(uniqueRenderId, diagram);
 
         if (!isActive || !containerRef.current) {
           return;
