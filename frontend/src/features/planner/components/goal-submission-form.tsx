@@ -15,7 +15,7 @@ interface GoalSubmissionFormProps {
 }
 
 // Inline SVG for the button icon to bypass any React 19 / SvgIcon context issue
-const ArrowUpIcon = () => (
+const ArrowRightIcon = () => (
   <svg
     width="14"
     height="14"
@@ -26,8 +26,8 @@ const ArrowUpIcon = () => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <line x1="12" y1="19" x2="12" y2="5" />
-    <polyline points="5 12 12 5 19 12" />
+    <line x1="5" y1="12" x2="19" y2="12" />
+    <polyline points="12 5 19 12 12 19" />
   </svg>
 );
 
@@ -48,7 +48,7 @@ export function GoalSubmissionForm({
           direction="row"
           alignItems="center"
           justifyContent="space-between"
-          sx={{ mt: 2 }}
+          sx={{ mt: 3 }}
         >
           {/* Helper or error message */}
           <Typography
@@ -64,18 +64,31 @@ export function GoalSubmissionForm({
             variant="contained"
             loading={isSubmitting}
             loadingText="Planning..."
-            endIcon={isSubmitting ? null : <ArrowUpIcon />}
+            endIcon={isSubmitting ? null : <ArrowRightIcon />}
             sx={{
-              borderRadius: "var(--radius-sm)",
-              px: 2.5,
-              py: 1,
+              borderRadius: "6px", // less rounded than current (8px)
+              px: 3,
+              py: 0.8, // slightly smaller height
               fontWeight: 600,
-              transition: "transform var(--transition-fast), background-color var(--transition-fast)",
+              fontSize: "0.875rem",
+              background: "linear-gradient(135deg, #7C5CFF 0%, #633EF8 100%)",
+              boxShadow: "0 4px 14px 0 rgba(124, 92, 255, 0.25)",
+              border: "none",
+              color: "#FFFFFF",
+              transition: "all var(--transition-fast)",
               "&:hover": {
-                transform: "translateY(-1px)",
+                background: "linear-gradient(135deg, #8B6EFF 0%, #6F4EFF 100%)",
+                transform: "translateY(-1.5px)",
+                boxShadow: "0 6px 20px 0 rgba(124, 92, 255, 0.35)",
               },
               "&:active": {
-                transform: "translateY(0)",
+                transform: "translateY(0.5px)",
+                boxShadow: "0 2px 8px 0 rgba(124, 92, 255, 0.2)",
+              },
+              "&.Mui-disabled": {
+                background: "rgba(124, 92, 255, 0.4)",
+                color: "rgba(255, 255, 255, 0.6)",
+                boxShadow: "none",
               },
             }}
           />

@@ -45,24 +45,44 @@ export function GlobalLayout() {
           bottom: 0,
           zIndex: 0,
           pointerEvents: "none",
-          opacity: isDarkMode ? 0.6 : 0.35,
-          transition: "opacity 0.5s ease-in-out",
+          opacity: isDarkMode ? 0.85 : 0.45, // tuned for vibrant glow
+          transition: "opacity var(--transition-normal)",
         }}
       >
         <SoftAurora
-          speed={0.3}
-          scale={1.2}
-          brightness={isDarkMode ? 0.8 : 0.4}
-          color1="#7C5CFF"
-          color2={isDarkMode ? "#050816" : "#F9FAFB"}
-          noiseFrequency={2.0}
-          noiseAmplitude={0.8}
-          bandHeight={0.6}
-          bandSpread={0.8}
+          speed={0.6}
+          scale={1.5}
+          brightness={1.15}
+          color1="#ffffff"
+          color2="#ff3fd8"
+          noiseFrequency={2.2}
+          noiseAmplitude={1.15}
+          bandHeight={0.42}
+          bandSpread={1.15}
+          octaveDecay={0.18}
+          layerOffset={0.08}
+          colorSpeed={0.95}
           enableMouseInteraction={true}
-          mouseInfluence={0.2}
+          mouseInfluence={0.15}
         />
       </Box>
+
+      {/* Subtle overlay to ensure premium readability and reduce dominance */}
+      <Box
+        sx={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 0,
+          pointerEvents: "none",
+          background: (theme) =>
+            theme.palette.mode === "dark"
+              ? "radial-gradient(circle at 50% 50%, rgba(5, 8, 22, 0.05) 0%, rgba(5, 8, 22, 0.75) 100%)"
+              : "radial-gradient(circle at 50% 50%, rgba(249, 250, 251, 0.05) 0%, rgba(249, 250, 251, 0.75) 100%)",
+        }}
+      />
 
       {/* Main App Layout */}
       <Box sx={{ position: "relative", zIndex: 1 }}>

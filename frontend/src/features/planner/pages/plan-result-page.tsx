@@ -15,7 +15,7 @@ export function PlanResultPage() {
 
   return (
     <PageContainer maxWidth="xl">
-      <SectionContainer sx={{ py: { xs: 3, md: 6 } }}>
+      <SectionContainer sx={{ py: { xs: 6, md: 10 } }}>
         {status !== "success" ? (
           <PageHeader
             eyebrow="Planner"

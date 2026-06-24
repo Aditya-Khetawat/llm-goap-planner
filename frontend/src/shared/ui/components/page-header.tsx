@@ -43,10 +43,8 @@ export function PageHeader({
           </Typography>
         )}
         <Typography
-          variant="h2"
+          variant="h1"
           component="h1"
-          fontWeight="var(--font-weight-bold)"
-          letterSpacing="-0.03em"
         >
           {title}
         </Typography>
@@ -55,7 +53,7 @@ export function PageHeader({
             variant="body1"
             color="text.secondary"
             maxWidth={680}
-            sx={{ mt: 0.5, lineHeight: 1.6 }}
+            sx={{ mt: 1.5 }}
           >
             {description}
           </Typography>

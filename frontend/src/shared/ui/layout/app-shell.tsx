@@ -16,7 +16,7 @@ export function AppShell({
   children,
   sidebarOpen = false,
   onSidebarClose,
-  drawerWidth = 220,
+  drawerWidth = 200,
   navigationItems,
   sidebarTitle,
 }: AppShellProps) {
@@ -37,7 +37,14 @@ export function AppShell({
           display: { xs: "block", md: "none" },
           width: drawerWidth,
           flexShrink: 0,
-          "& .MuiDrawer-paper": { width: drawerWidth, boxSizing: "border-box" },
+          "& .MuiDrawer-paper": { 
+            width: drawerWidth, 
+            boxSizing: "border-box",
+            backgroundColor: "var(--color-surface-elevated)",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
+            borderRight: "1px solid var(--color-border)",
+          },
         }}
       >
         <AppSidebar items={navigationItems} title={sidebarTitle} />
@@ -69,9 +76,9 @@ export function AppShell({
         <Box
           sx={{
             width: "100%",
-            maxWidth: "1400px",
-            px: { xs: 4, sm: 8, md: 12 },
-            py: { xs: 6, md: 10 },
+            maxWidth: "1200px",
+            px: { xs: 2.5, sm: 5, md: 8 }, // adjusted for better layout flow & responsiveness
+            py: { xs: 4, md: 6 },
             display: "flex",
             flexDirection: "column",
           }}

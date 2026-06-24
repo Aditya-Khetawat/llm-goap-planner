@@ -25,15 +25,13 @@ export function SectionHeader({
       >
         <Stack spacing={0.5} sx={{ flex: 1 }}>
           <Typography
-            variant="h4"
+            variant="h2"
             component="h2"
-            fontWeight="var(--font-weight-semibold)"
-            letterSpacing="-0.02em"
           >
             {title}
           </Typography>
           {description && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
               {description}
             </Typography>
           )}

@@ -20,31 +20,48 @@ export function TimelineCard({
     <Box
       sx={{
         position: "relative",
-        pl: 4,
-        width: "100%",
+        p: 2,
+        pl: 5,
+        borderRadius: "var(--radius-sm)",
+        backgroundColor: "transparent",
+        transition: "all var(--transition-fast)",
+        "&:hover": {
+          backgroundColor: "var(--color-item-hover)",
+          "& .stepper-dot": {
+            boxShadow: "0 0 0 5px rgba(124, 92, 255, 0.22)",
+            borderColor: "var(--color-accent)",
+          },
+          "&::before": {
+            backgroundColor: "var(--color-accent)",
+            opacity: 0.35,
+          },
+        },
         "&::before": {
           content: '""',
           position: "absolute",
-          left: 7,
-          top: 24,
-          bottom: isLast ? 0 : -28,
+          left: "21px",
+          top: "34px",
+          bottom: isLast ? 0 : -20,
           width: isLast ? 0 : "2px",
           backgroundColor: "var(--color-border)",
+          transition: "all var(--transition-fast)",
         },
       }}
     >
       {/* Stepper Dot */}
       <Box
+        className="stepper-dot"
         sx={{
           position: "absolute",
-          left: "2px",
-          top: "6px",
+          left: "16px",
+          top: "20px",
           width: "12px",
           height: "12px",
           borderRadius: "50%",
-          border: "2.5px solid var(--color-accent)",
+          border: "2.5px solid rgba(124, 92, 255, 0.6)",
           backgroundColor: "var(--color-background)",
-          boxShadow: "0 0 0 3.5px rgba(124, 92, 255, 0.12)",
+          boxShadow: "0 0 0 3.5px rgba(124, 92, 255, 0.08)",
+          transition: "all var(--transition-fast)",
         }}
       />
       <Stack
@@ -54,7 +71,7 @@ export function TimelineCard({
         spacing={1}
         sx={{ mb: 1 }}
       >
-        <Typography variant="subtitle1" fontWeight={600} color="text.primary">
+        <Typography variant="body1" fontWeight={600} color="text.primary">
           {index + 1}. {title}
         </Typography>
         {subtitle && (
@@ -64,7 +81,7 @@ export function TimelineCard({
         )}
       </Stack>
       {details && (
-        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ opacity: 0.85, pl: 0.5 }}>
           {details}
         </Typography>
       )}

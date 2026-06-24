@@ -33,35 +33,54 @@ function createPalette(mode: ThemeMode) {
 }
 
 export function createAppTheme(mode: ThemeMode): Theme {
+  const isDarkMode = mode === THEME_MODE_DARK;
   const theme = createTheme({
     palette: createPalette(mode),
     typography: {
       fontFamily: "var(--font-family)",
       h1: {
-        fontWeight: "var(--font-weight-bold)",
-        fontSize: "2rem",
+        fontWeight: 700,
+        fontSize: "2.25rem", // 36px mobile
+        letterSpacing: "-0.04em",
+        lineHeight: 1.1,
+        "@media (min-width:600px)": {
+          fontSize: "2.75rem", // 44px tablet
+        },
+        "@media (min-width:960px)": {
+          fontSize: "3.5rem", // 56px desktop
+        },
+      },
+      h2: {
+        fontWeight: 600,
+        fontSize: "1.75rem", // 28px section titles
         letterSpacing: "-0.03em",
         lineHeight: 1.25,
       },
-      h2: {
-        fontWeight: "var(--font-weight-semibold)",
-        fontSize: "1.5rem",
+      h3: {
+        fontWeight: 600,
+        fontSize: "1.25rem", // 20px card titles
         letterSpacing: "-0.02em",
         lineHeight: 1.3,
       },
-      h3: {
-        fontWeight: "var(--font-weight-semibold)",
-        fontSize: "1.25rem",
-        letterSpacing: "-0.01em",
-        lineHeight: 1.35,
-      },
       body1: {
-        fontSize: "0.9375rem",
+        fontSize: "1rem", // 16px body large
         lineHeight: 1.6,
+        letterSpacing: "-0.011em",
       },
       body2: {
-        fontSize: "0.875rem",
+        fontSize: "0.875rem", // 14px body
+        lineHeight: 1.57,
+        letterSpacing: "-0.006em",
+      },
+      caption: {
+        fontSize: "0.75rem", // 12px caption
         lineHeight: 1.5,
+        letterSpacing: "0",
+      },
+      subtitle2: {
+        fontSize: "0.75rem", // 12px meta text
+        lineHeight: 1.4,
+        letterSpacing: "0.01em",
       },
       button: {
         fontWeight: "var(--font-weight-medium)",
@@ -75,11 +94,38 @@ export function createAppTheme(mode: ThemeMode): Theme {
     components: {
       MuiCssBaseline: {
         styleOverrides: {
+          html: {
+            scrollBehavior: "smooth",
+            WebkitFontSmoothing: "antialiased",
+            MozOsxFontSmoothing: "grayscale",
+          },
           body: {
             backgroundColor: "var(--color-background)",
             color: "var(--color-text-primary)",
             fontFamily: "var(--font-family)",
             transition: "background-color var(--transition-normal), color var(--transition-normal)",
+            scrollbarWidth: "thin",
+            scrollbarColor: isDarkMode 
+              ? "rgba(255, 255, 255, 0.12) transparent" 
+              : "rgba(0, 0, 0, 0.12) transparent",
+            "&::-webkit-scrollbar": {
+              width: "6px",
+              height: "6px",
+            },
+            "&::-webkit-scrollbar-track": {
+              background: "transparent",
+            },
+            "&::-webkit-scrollbar-thumb": {
+              background: isDarkMode 
+                ? "rgba(255, 255, 255, 0.12)" 
+                : "rgba(0, 0, 0, 0.12)",
+              borderRadius: "99px",
+              "&:hover": {
+                background: isDarkMode 
+                  ? "rgba(255, 255, 255, 0.24)" 
+                  : "rgba(0, 0, 0, 0.24)",
+              },
+            },
           },
           "#root": {
             minHeight: "100dvh",
@@ -90,13 +136,15 @@ export function createAppTheme(mode: ThemeMode): Theme {
         styleOverrides: {
           root: {
             backgroundColor: "var(--color-surface)",
-            backdropFilter: "blur(16px)",
-            WebkitBackdropFilter: "blur(16px)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
             backgroundImage: "none",
             border: "1px solid var(--color-border)",
-            boxShadow: "var(--shadow-flat)", // keep surfaces flat
+            boxShadow: isDarkMode 
+              ? "var(--shadow-premium-dark)" 
+              : "var(--shadow-premium)",
             borderRadius: "var(--radius-md)",
-            transition: "background-color var(--transition-normal), border-color var(--transition-normal)",
+            transition: "background-color var(--transition-normal), border-color var(--transition-normal), box-shadow var(--transition-normal)",
           },
         },
       },
@@ -104,32 +152,67 @@ export function createAppTheme(mode: ThemeMode): Theme {
         styleOverrides: {
           root: {
             backgroundColor: "var(--color-surface)",
-            backdropFilter: "blur(16px)",
-            WebkitBackdropFilter: "blur(16px)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
             border: "1px solid var(--color-border)",
-            boxShadow: "var(--shadow-flat)",
+            boxShadow: isDarkMode 
+              ? "var(--shadow-premium-dark)" 
+              : "var(--shadow-premium)",
             borderRadius: "var(--radius-md)",
             backgroundImage: "none",
+            transition: "all var(--transition-normal)",
           },
         },
       },
-
+      MuiCardHeader: {
+        styleOverrides: {
+          root: {
+            padding: "24px 24px 0 24px",
+          },
+        },
+      },
+      MuiCardContent: {
+        styleOverrides: {
+          root: {
+            padding: "24px",
+            "&:last-child": {
+              paddingBottom: "24px",
+            },
+          },
+        },
+      },
+      MuiSkeleton: {
+        styleOverrides: {
+          root: {
+            backgroundColor: isDarkMode 
+              ? "rgba(255, 255, 255, 0.05)" 
+              : "rgba(0, 0, 0, 0.04)",
+            borderRadius: "var(--radius-sm)",
+          },
+        },
+      },
       MuiButton: {
         styleOverrides: {
           root: {
             borderRadius: "var(--radius-sm)",
-            padding: "9px 18px",
-            boxShadow: "var(--shadow-flat)",
-            transition: "transform var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast)",
+            padding: "7px 14px",
+            boxShadow: "none",
+            transition: "all var(--transition-fast)",
             "&:hover": {
-              boxShadow: "var(--shadow-flat)",
+              boxShadow: "none",
               transform: "translateY(-1px)",
             },
             "&:active": {
-              transform: "translateY(0)",
+              transform: "translateY(0.5px)",
             },
             "&.Mui-disabled": {
-              opacity: 0.65,
+              opacity: 0.6,
+            },
+            "&:focus-visible": {
+              outline: "none",
+              boxShadow: isDarkMode
+                ? "0 0 0 2px var(--color-background), 0 0 0 4px var(--color-accent)"
+                : "0 0 0 2px var(--color-background), 0 0 0 4px var(--color-accent)",
             },
           },
           containedPrimary: {
@@ -144,7 +227,7 @@ export function createAppTheme(mode: ThemeMode): Theme {
             color: "var(--color-text-primary)",
             "&:hover": {
               borderColor: "var(--color-border-hover)",
-              backgroundColor: "rgba(255, 255, 255, 0.03)",
+              backgroundColor: "var(--color-item-hover)",
             },
           },
         },
@@ -157,13 +240,17 @@ export function createAppTheme(mode: ThemeMode): Theme {
             transition: "all var(--transition-fast)",
             "& .MuiOutlinedInput-notchedOutline": {
               borderColor: "var(--color-border)",
+              transition: "border-color var(--transition-fast)",
             },
             "&:hover .MuiOutlinedInput-notchedOutline": {
               borderColor: "var(--color-border-hover)",
             },
-            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-              borderColor: "var(--color-accent)",
-              borderWidth: "1px",
+            "&.Mui-focused": {
+              backgroundColor: isDarkMode ? "rgba(10, 15, 30, 0.85)" : "#FFFFFF",
+              "& .MuiOutlinedInput-notchedOutline": {
+                borderColor: "var(--color-accent)",
+                borderWidth: "1px",
+              },
             },
           },
         },
@@ -189,7 +276,7 @@ export function createAppTheme(mode: ThemeMode): Theme {
       MuiListItemButton: {
         styleOverrides: {
           root: {
-            borderRadius: "var(--radius-xs)",
+            borderRadius: "var(--radius-sm)",
             margin: "2px 8px",
             transition: "all var(--transition-fast)",
             "&.Mui-selected": {

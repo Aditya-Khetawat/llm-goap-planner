@@ -17,20 +17,44 @@ export const AppTextarea = forwardRef<HTMLDivElement, AppTextareaProps>(
             display: "flex",
             flexDirection: "column",
             width: "100%",
-            backgroundColor: "var(--color-surface-elevated)",
+            backgroundColor: (theme) =>
+              theme.palette.mode === "dark" ? "rgba(10, 15, 30, 0.5)" : "rgba(255, 255, 255, 0.65)",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
             border: "1px solid var(--color-border)",
-            borderRadius: "var(--radius-md)",
-            p: 2.5, // increased internal padding for a spacious feel
-            transition: "border-color var(--transition-fast), box-shadow var(--transition-fast)",
+            borderRadius: "var(--radius-md)", // 16px radius
+            p: 3.5, // generous padding
+            position: "relative",
+            transition: "all var(--transition-normal)",
+            boxShadow: (theme) => 
+              theme.palette.mode === "dark"
+                ? "0 20px 50px rgba(0, 0, 0, 0.3), 0 0 40px rgba(124, 92, 255, 0.03)" 
+                : "0 15px 35px rgba(0, 0, 0, 0.05), 0 0 30px rgba(124, 92, 255, 0.01)",
+            "&:hover": {
+              borderColor: "var(--color-border-hover)",
+              transform: "translateY(-2px)",
+              boxShadow: (theme) =>
+                theme.palette.mode === "dark"
+                  ? "0 25px 60px rgba(0, 0, 0, 0.45), 0 0 50px rgba(124, 92, 255, 0.06)"
+                  : "0 20px 40px rgba(0, 0, 0, 0.08), 0 0 40px rgba(124, 92, 255, 0.02)",
+            },
             "&:focus-within": {
-              borderColor: "rgba(124, 92, 255, 0.4)",
-              boxShadow: "0 0 0 3px rgba(124, 92, 255, 0.15)",
+              borderColor: "var(--color-accent)",
+              transform: "translateY(-2px)",
+              boxShadow: (theme) =>
+                theme.palette.mode === "dark"
+                  ? "0 0 0 1px var(--color-accent), 0 25px 60px rgba(0, 0, 0, 0.45), 0 0 50px rgba(124, 92, 255, 0.08)"
+                  : "0 0 0 1px var(--color-accent), 0 20px 40px rgba(0, 0, 0, 0.08), 0 0 40px rgba(124, 92, 255, 0.03)",
             },
             ...(error && {
-              borderColor: "rgba(239, 68, 68, 0.4)",
+              borderColor: "var(--color-danger)",
               "&:focus-within": {
-                borderColor: "rgba(239, 68, 68, 0.4)",
-                boxShadow: "0 0 0 3px rgba(239, 68, 68, 0.15)",
+                borderColor: "var(--color-danger)",
+                transform: "translateY(-2px)",
+                boxShadow: (theme) =>
+                  theme.palette.mode === "dark"
+                    ? "0 0 0 1px var(--color-danger), 0 25px 60px rgba(0, 0, 0, 0.45), 0 0 50px rgba(239, 68, 68, 0.08)"
+                    : "0 0 0 1px var(--color-danger), 0 20px 40px rgba(0, 0, 0, 0.08), 0 0 40px rgba(239, 68, 68, 0.03)",
               },
             }),
           }}
@@ -48,8 +72,9 @@ export const AppTextarea = forwardRef<HTMLDivElement, AppTextareaProps>(
               "& .MuiOutlinedInput-root": {
                 backgroundColor: "transparent",
                 padding: 0,
-                fontSize: "1rem",
-                lineHeight: 1.55,
+                fontSize: "1.05rem",
+                lineHeight: 1.6,
+                color: "var(--color-text-primary)",
                 "& .MuiOutlinedInput-notchedOutline": {
                   border: "none",
                 },
@@ -62,11 +87,13 @@ export const AppTextarea = forwardRef<HTMLDivElement, AppTextareaProps>(
               },
               "& .MuiInputBase-input::placeholder": {
                 color: "var(--color-text-secondary)",
-                opacity: 0.5,
+                opacity: 0.45,
+                fontWeight: 400,
+                fontSize: "1.05rem",
                 transition: "opacity var(--transition-fast) ease-out",
               },
               "& .MuiInputBase-input:focus::placeholder": {
-                opacity: 0.3,
+                opacity: 0.25,
               },
               ...sx,
             }}

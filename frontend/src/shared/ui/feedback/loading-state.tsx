@@ -1,7 +1,7 @@
 import { Box, Stack, Typography } from "@mui/material";
 import type { PropsWithChildren, ReactNode } from "react";
 
-const ElegantSpinner = () => (
+export const ElegantSpinner = () => (
   <Box
     sx={{
       display: "inline-flex",
@@ -48,31 +48,69 @@ const ElegantSpinner = () => (
   </Box>
 );
 
+import { useEffect, useState } from "react";
+
+const LOADING_STEPS = [
+  "Decomposing goal into executable subtasks...",
+  "Analyzing environment state variables...",
+  "Evaluating preconditions and effects dependencies...",
+  "Constructing GOAP action network...",
+  "Running backwards A* state search...",
+  "Optimizing plan steps cost paths...",
+  "Resolving conflicts and state constraints...",
+  "Synthesizing final execution dependency graph..."
+];
+
 export interface LoadingStateProps extends PropsWithChildren {
   title?: ReactNode;
   description?: ReactNode;
 }
 
 export function LoadingState({ title, description, children }: LoadingStateProps) {
+  const [stepIndex, setStepIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setStepIndex((prev) => (prev + 1) % LOADING_STEPS.length);
+    }, 2500);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
-    <Stack spacing={3.5} alignItems="center" justifyContent="center" sx={{ py: 10, width: "100%" }}>
+    <Stack spacing={3} alignItems="center" justifyContent="center" sx={{ py: 6, width: "100%" }}>
       <ElegantSpinner />
       {title && (
-        <Typography variant="h6" component="h2" fontWeight={700} color="text.primary">
+        <Typography variant="h3" component="h2" color="text.primary">
           {title}
         </Typography>
       )}
+      
+      <Typography
+        className="loading-text-pulse"
+        variant="body2"
+        sx={{ 
+          textAlign: "center", 
+          maxWidth: 480, 
+          lineHeight: 1.6,
+          fontWeight: 600,
+          color: "var(--color-accent)",
+          minHeight: "22px"
+        }}
+      >
+        {LOADING_STEPS[stepIndex]}
+      </Typography>
+
       {description && (
         <Typography
-          variant="body2"
+          variant="caption"
           color="text.secondary"
-          sx={{ textAlign: "center", maxWidth: 480, lineHeight: 1.6 }}
+          sx={{ textAlign: "center", maxWidth: 440, opacity: 0.7 }}
         >
           {description}
         </Typography>
       )}
       {children && (
-        <Stack spacing={1.5} sx={{ width: "100%", maxWidth: 720, mt: 2 }}>
+        <Stack spacing={2} sx={{ width: "100%", maxWidth: 720, mt: 2.5 }}>
           {children}
         </Stack>
       )}

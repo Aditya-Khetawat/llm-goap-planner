@@ -10,7 +10,7 @@ const BLOCKED_SVG_TAGS = new Set(["script", "foreignobject", "iframe", "object",
 
 export interface MermaidDiagramViewerProps {
   diagram: string;
-  title: string;
+  title?: string;
   description?: string;
   config?: MermaidConfig;
 }
@@ -153,16 +153,20 @@ export function MermaidDiagramViewer({
 
   return (
     <Stack spacing={2}>
-      <Box>
-        <Typography variant="h6" component="h3" fontWeight={700} gutterBottom>
-          {title}
-        </Typography>
-        {description ? (
-          <Typography variant="body2" color="text.secondary">
-            {description}
-          </Typography>
-        ) : null}
-      </Box>
+      {title || description ? (
+        <Box>
+          {title ? (
+            <Typography variant="h6" component="h3" fontWeight={700} gutterBottom>
+              {title}
+            </Typography>
+          ) : null}
+          {description ? (
+            <Typography variant="body2" color="text.secondary">
+              {description}
+            </Typography>
+          ) : null}
+        </Box>
+      ) : null}
 
       {loading ? <AppSkeleton variant="rounded" height={320} /> : null}
 

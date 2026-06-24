@@ -96,7 +96,7 @@ float perlin3D(float amplitude, float frequency, float px, float py, float pz) {
   float y = py * frequency;
 
   float fx = floor(x); float fy = floor(y); float fz = floor(pz);
-  float cx = ceil(x);  float cy = ceil(y);  float cz = ceil(pz);
+  float cx = fx + 1.0; float cy = fy + 1.0; float cz = fz + 1.0;
 
   vec3 g000 = gradientHash(vec3(fx, fy, fz));
   vec3 g100 = gradientHash(vec3(cx, fy, fz));
@@ -126,7 +126,7 @@ float perlin3D(float amplitude, float frequency, float px, float py, float pz) {
   float lx11 = mix(d011, d111, sx);
 
   float ly0 = mix(lx00, lx10, sy);
-  float ly1 = mix(lx01, lx11, sz);
+  float ly1 = mix(lx01, lx11, sy);
 
   return amplitude * mix(ly0, ly1, sz);
 }
@@ -245,6 +245,13 @@ export function SoftAurora({
     });
 
     const mesh = new Mesh(gl, { geometry, program });
+    gl.canvas.style.position = 'absolute';
+    gl.canvas.style.top = '0';
+    gl.canvas.style.left = '0';
+    gl.canvas.style.width = '100%';
+    gl.canvas.style.height = '100%';
+    gl.canvas.style.display = 'block';
+    gl.canvas.style.pointerEvents = 'none';
     container.appendChild(gl.canvas);
 
     if (enableMouseInteraction) {
@@ -288,6 +295,7 @@ export function SoftAurora({
     <div
       ref={containerRef}
       style={{
+        position: 'relative',
         width: '100%',
         height: '100%',
         overflow: 'hidden',

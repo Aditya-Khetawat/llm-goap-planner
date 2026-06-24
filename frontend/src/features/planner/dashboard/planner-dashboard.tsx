@@ -26,17 +26,17 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
   const timeline = useMemo(() => buildPlannerTimeline(result), [result]);
 
   return (
-    <Stack spacing={10} sx={{ width: "100%", py: 4 }}>
+    <Stack spacing={6} sx={{ width: "100%", py: 2 }}>
       {/* Hero Section */}
       <Box>
-        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1.5 }}>
           <StatusBadge status={result.status} />
           {result.classification ? (
             <Chip
               label={sanitizeText(result.classification)}
               size="small"
               variant="outlined"
-              sx={{ opacity: 0.8, textTransform: "uppercase", fontWeight: 500 }}
+              sx={{ opacity: 0.8, textTransform: "uppercase", fontWeight: 600, fontSize: "0.72rem" }}
             />
           ) : null}
           <Typography variant="caption" color="text.secondary">
@@ -45,23 +45,20 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
         </Stack>
 
         <Typography
-          variant="h2"
+          variant="h1"
           component="h1"
-          fontWeight="var(--font-weight-bold)"
-          letterSpacing="-0.03em"
-          sx={{ mb: 3 }}
+          sx={{ mb: 2 }}
         >
           {result.goal}
         </Typography>
 
         <Typography
           variant="body1"
-          color="text.primary"
+          color="text.secondary"
           sx={{
-            fontSize: "1.1rem",
-            lineHeight: 1.7,
-            opacity: 0.9,
             maxWidth: "800px",
+            mt: 1.5,
+            lineHeight: 1.6,
           }}
         >
           {sanitizeText(result.summary)}
@@ -74,7 +71,7 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
           title="Overview"
           description="High-level plan execution indicators from the GOAP planner."
         />
-        <Grid container spacing={4}>
+        <Grid container spacing={3}>
           <Grid item xs={6} md={4}>
             <StatCard label="Total Steps" value={metrics.totalSteps} />
           </Grid>
@@ -93,9 +90,8 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
           title="Execution Graph"
           description="Mermaid visualization of the execution dependency graph."
         />
-        <GlassCard sx={{ overflow: "auto" }}>
+        <GlassCard sx={{ overflow: "auto", p: 3 }}>
           <MermaidDiagramViewer
-            title="GOAP Execution Graph"
             diagram={result.mermaidDiagram}
           />
         </GlassCard>
@@ -107,7 +103,7 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
           title="Timeline"
           description="Sequence of tasks executed by agents in chronological order."
         />
-        <Stack spacing={4} sx={{ mt: 2 }}>
+        <Stack spacing={2} sx={{ mt: 1 }}>
           {timeline.map((item, index) => {
             const isLast = index === timeline.length - 1;
             return (
@@ -135,7 +131,7 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
           title="Action Steps"
           description="Readable list of raw plan steps with pre/post status."
         />
-        <GlassCard>
+        <GlassCard sx={{ p: 3 }}>
           <PlanSteps steps={result.steps} />
         </GlassCard>
       </Box>
@@ -147,14 +143,14 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
             title="Planner Trace"
             description="Details of preconditions, effects, and missing states checked by the GOAP planner."
           />
-          <Stack spacing={4}>
+          <Stack spacing={2}>
             {result.trace.map((entry, index) => (
-              <GlassCard key={`${entry.action}-${index}`}>
+              <GlassCard key={`${entry.action}-${index}`} sx={{ p: 2.5 }}>
                 <Typography
-                  variant="subtitle1"
+                  variant="subtitle2"
                   fontWeight={600}
                   color="primary"
-                  sx={{ mb: 2.5 }}
+                  sx={{ mb: 2, textTransform: "uppercase", letterSpacing: "0.02em" }}
                 >
                   Action: {entry.action}
                 </Typography>
@@ -164,7 +160,7 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
                     <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
                       Preconditions Checked
                     </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2.5 }}>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 3 }}>
                       {entry.preconditions_checked?.length > 0 ? (
                         entry.preconditions_checked.map((cond) => (
                           <Chip key={cond} label={cond} size="small" variant="outlined" color="primary" />
@@ -179,7 +175,7 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
                         <Typography variant="body2" fontWeight={600} color="error" sx={{ mb: 1 }}>
                           Missing Preconditions
                         </Typography>
-                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2.5 }}>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 3 }}>
                           {entry.missing_preconditions.map((cond) => (
                             <Chip key={cond} label={cond} size="small" color="error" variant="outlined" />
                           ))}
@@ -205,7 +201,7 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
                     <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
                       State Before Action
                     </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2.5 }}>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 3 }}>
                       {entry.state_before?.length > 0 ? (
                         entry.state_before.map((state) => (
                           <Chip key={state} label={state} size="small" />
