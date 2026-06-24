@@ -70,8 +70,8 @@ export function AppShell({
           sx={{
             width: "100%",
             maxWidth: "1400px",
-            px: { xs: 3, sm: 6, md: 8 },
-            py: { xs: 4, md: 8 },
+            px: { xs: 4, sm: 8, md: 12 },
+            py: { xs: 6, md: 10 },
             display: "flex",
             flexDirection: "column",
           }}

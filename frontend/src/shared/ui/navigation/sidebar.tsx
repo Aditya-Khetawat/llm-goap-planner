@@ -103,7 +103,22 @@ export function AppSidebar({ items = defaultItems, title = "Navigation" }: AppSi
               selected={item.selected}
               disabled={item.disabled}
               onClick={item.onClick}
-              sx={{ mb: "var(--spacing-xs)" }}
+              sx={{
+                mb: "var(--spacing-xs)",
+                py: 1.2,
+                px: 2,
+                position: "relative",
+                "&.Mui-selected::before": {
+                  content: '""',
+                  position: "absolute",
+                  left: 0,
+                  top: "25%",
+                  height: "50%",
+                  width: "3px",
+                  borderRadius: "2px",
+                  backgroundColor: "var(--color-accent)",
+                },
+              }}
             >
               {item.iconName === "goal" ? (
                 <ListItemIcon sx={{ minWidth: "32px" }}>

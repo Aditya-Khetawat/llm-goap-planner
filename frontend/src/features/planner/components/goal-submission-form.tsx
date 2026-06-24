@@ -1,8 +1,9 @@
-import { Box, Stack, TextField, Typography } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
 import type { FormEventHandler } from "react";
 import type { Control, FieldErrors, UseFormRegister } from "react-hook-form";
 
 import { AppButton } from "@shared/ui/components/button";
+import { AppTextarea } from "@shared/ui/components/textarea";
 import type { PlannerGoalFormValues } from "@features/planner/model/planner.schema";
 
 interface GoalSubmissionFormProps {
@@ -38,49 +39,11 @@ export function GoalSubmissionForm({
 }: GoalSubmissionFormProps) {
   return (
     <Box component="form" onSubmit={onSubmit} sx={{ width: "100%" }}>
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          width: "100%",
-          backgroundColor: "var(--color-surface-elevated)",
-          border: "1px solid var(--color-border)",
-          borderRadius: "var(--radius-md)",
-          p: 2,
-          transition: "all var(--transition-fast)",
-          "&:focus-within": {
-            borderColor: "var(--color-accent)",
-            boxShadow: "0 0 0 1px var(--color-accent)",
-          },
-        }}
+      <AppTextarea
+        placeholder="E.g., Plan a 3-day weekend trip to Rome with historical sightseeing"
+        error={Boolean(errors.goal)}
+        {...register("goal")}
       >
-        <TextField
-          fullWidth
-          multiline
-          minRows={4}
-          maxRows={10}
-          placeholder="E.g., Plan a 3-day weekend trip to Rome with historical sightseeing"
-          error={Boolean(errors.goal)}
-          {...register("goal")}
-          sx={{
-            "& .MuiOutlinedInput-root": {
-              backgroundColor: "transparent",
-              padding: 0,
-              fontSize: "1rem",
-              lineHeight: 1.5,
-              "& .MuiOutlinedInput-notchedOutline": {
-                border: "none",
-              },
-              "&:hover .MuiOutlinedInput-notchedOutline": {
-                border: "none",
-              },
-              "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                border: "none",
-              },
-            },
-          }}
-        />
-
         <Stack
           direction="row"
           alignItems="center"
@@ -99,7 +62,8 @@ export function GoalSubmissionForm({
           <AppButton
             type="submit"
             variant="contained"
-            disabled={isSubmitting}
+            loading={isSubmitting}
+            loadingText="Planning..."
             endIcon={isSubmitting ? null : <ArrowUpIcon />}
             sx={{
               borderRadius: "var(--radius-sm)",
@@ -114,13 +78,12 @@ export function GoalSubmissionForm({
                 transform: "translateY(0)",
               },
             }}
-          >
-            {isSubmitting ? "Planning..." : "Generate Plan"}
-          </AppButton>
+          />
         </Stack>
-      </Box>
+      </AppTextarea>
     </Box>
   );
 }
+
 
 

@@ -90,6 +90,8 @@ export function createAppTheme(mode: ThemeMode): Theme {
         styleOverrides: {
           root: {
             backgroundColor: "var(--color-surface)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
             backgroundImage: "none",
             border: "1px solid var(--color-border)",
             boxShadow: "var(--shadow-flat)", // keep surfaces flat
@@ -102,6 +104,8 @@ export function createAppTheme(mode: ThemeMode): Theme {
         styleOverrides: {
           root: {
             backgroundColor: "var(--color-surface)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
             border: "1px solid var(--color-border)",
             boxShadow: "var(--shadow-flat)",
             borderRadius: "var(--radius-md)",
@@ -109,15 +113,23 @@ export function createAppTheme(mode: ThemeMode): Theme {
           },
         },
       },
+
       MuiButton: {
         styleOverrides: {
           root: {
             borderRadius: "var(--radius-sm)",
-            padding: "8px 16px",
+            padding: "9px 18px",
             boxShadow: "var(--shadow-flat)",
-            transition: "all var(--transition-fast)",
+            transition: "transform var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast)",
             "&:hover": {
               boxShadow: "var(--shadow-flat)",
+              transform: "translateY(-1px)",
+            },
+            "&:active": {
+              transform: "translateY(0)",
+            },
+            "&.Mui-disabled": {
+              opacity: 0.65,
             },
           },
           containedPrimary: {
@@ -159,8 +171,8 @@ export function createAppTheme(mode: ThemeMode): Theme {
       MuiDrawer: {
         styleOverrides: {
           paper: {
-            backgroundColor: "var(--color-surface)",
-            borderRight: "1px solid var(--color-border)",
+            backgroundColor: "transparent",
+            borderRight: "1px solid transparent",
             boxShadow: "var(--shadow-flat)",
           },
         },

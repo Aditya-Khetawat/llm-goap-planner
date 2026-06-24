@@ -1,9 +1,11 @@
-import { Box, Stack, Typography } from "@mui/material";
+import { Box } from "@mui/material";
 
 import { PageContainer } from "@shared/ui/layout/page-container";
 import { SectionContainer } from "@shared/ui/layout/section-container";
 import { GoalSubmissionForm } from "@features/planner/components/goal-submission-form";
 import { useGoalInputPageController } from "@features/planner/hooks/use-goal-input-page-controller";
+import { PageHeader } from "@shared/ui/components/page-header";
+import { Typography } from "@mui/material";
 
 // Info Icon inline SVG to avoid React 19 / SvgIcon context bugs
 const InfoIcon = () => (
@@ -38,25 +40,12 @@ export function GoalInputPage() {
         }}
       >
         {/* Centered Heading */}
-        <Stack spacing={1.5} alignItems="center" sx={{ mb: 5, textAlign: "center" }}>
-          <Typography
-            variant="h3"
-            component="h1"
-            fontWeight="var(--font-weight-bold)"
-            letterSpacing="-0.03em"
-            sx={{ fontSize: { xs: "2rem", md: "2.5rem" } }}
-          >
-            What would you like to accomplish?
-          </Typography>
-          <Typography
-            variant="body1"
-            color="text.secondary"
-            maxWidth={580}
-            sx={{ fontSize: "1.05rem" }}
-          >
-            Describe your goal in natural language. The planner will decompose it into an executable workflow.
-          </Typography>
-        </Stack>
+        <PageHeader
+          align="center"
+          title="What would you like to accomplish?"
+          description="Describe your goal in natural language. The planner will decompose it into an executable workflow."
+        />
+
 
         {/* Center Prompt Box */}
         <Box sx={{ width: "100%", maxWidth: "720px" }}>
