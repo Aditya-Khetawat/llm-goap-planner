@@ -30,7 +30,7 @@ export function GoalInputPage() {
     <PageContainer maxWidth="md">
       <SectionContainer
         sx={{
-          pt: { xs: 2, md: 4 }, // shifted up for better vertical alignment and visibility
+          pt: { xs: 1, md: 1.5 }, // shifted up to reduce top whitespace
           pb: { xs: 6, md: 8 },
           display: "flex",
           flexDirection: "column",
@@ -43,11 +43,11 @@ export function GoalInputPage() {
           alignItems="center"
           sx={{
             position: "relative",
-            mb: 4,
+            mb: 5, // generous spacing above the goal input card
             width: "100%",
             textAlign: "center",
           }}
-          spacing={2.5}
+          spacing={3} // spacious rhythm between header items
         >
           {/* Subtle backglow behind heading */}
           <Box

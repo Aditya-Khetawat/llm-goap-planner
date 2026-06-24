@@ -22,8 +22,28 @@ export function AppShell({
 }: AppShellProps) {
   return (
     <Box sx={{ display: "flex", minHeight: "100dvh" }}>
-      <AppBar position="fixed" color="transparent" elevation={0}>
-        <Toolbar disableGutters>
+      <AppBar 
+        position="fixed" 
+        elevation={0}
+        sx={{
+          width: { md: `calc(100% - ${drawerWidth}px)` },
+          ml: { md: `${drawerWidth}px` },
+          height: { xs: "56px", md: "64px" },
+          backgroundColor: (theme) =>
+            theme.palette.mode === "dark" ? "rgba(5, 8, 22, 0.45)" : "rgba(249, 250, 251, 0.45)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          borderBottom: "1px solid var(--color-border)",
+          boxShadow: (theme) =>
+            theme.palette.mode === "dark"
+              ? "inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.2)"
+              : "inset 0 1px 0 0 rgba(255, 255, 255, 0.6), 0 1px 2px 0 rgba(0, 0, 0, 0.03)",
+          display: "flex",
+          justifyContent: "center",
+          transition: "all var(--transition-normal)",
+        }}
+      >
+        <Toolbar disableGutters sx={{ minHeight: "100%", height: "100%" }}>
           <AppHeader onMenuClick={onSidebarClose} />
         </Toolbar>
       </AppBar>
@@ -77,13 +97,14 @@ export function AppShell({
           sx={{
             width: "100%",
             maxWidth: "1200px",
-            px: { xs: 2.5, sm: 5, md: 8 }, // adjusted for better layout flow & responsiveness
-            py: { xs: 4, md: 6 },
+            px: { xs: 2.5, sm: 5, md: 8 },
+            pt: 0, // content aligns perfectly below the sticky header
+            pb: { xs: 4, md: 6 },
             display: "flex",
             flexDirection: "column",
           }}
         >
-          <Toolbar />
+          <Toolbar sx={{ minHeight: { xs: "56px", md: "64px" } }} />
           {children}
         </Box>
       </Box>

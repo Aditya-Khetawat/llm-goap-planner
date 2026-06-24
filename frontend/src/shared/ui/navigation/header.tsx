@@ -1,4 +1,4 @@
-import { IconButton, Stack, Typography } from "@mui/material";
+import { Box, IconButton, Stack, Typography } from "@mui/material";
 
 import { APP_NAME } from "@shared/constants/app";
 import { useThemeMode } from "@shared/hooks/use-theme-mode";
@@ -70,19 +70,22 @@ export function AppHeader({ onMenuClick }: AppHeaderProps) {
       direction="row"
       alignItems="center"
       justifyContent="space-between"
-      sx={{ width: "100%", px: 3, py: 1.5 }}
+      sx={{ width: "100%", px: 3, height: "100%" }}
     >
+      {/* Left Section */}
       <Stack direction="row" spacing={1.5} alignItems="center">
         {onMenuClick ? (
           <IconButton
             aria-label="Open navigation drawer"
             onClick={onMenuClick}
             edge="start"
-            sx={{ display: { md: "none" }, color: "text.primary" }}
+            sx={{ display: { md: "none" }, color: "text.primary", mr: 0.5 }}
           >
             <MenuIconSvg />
           </IconButton>
         ) : null}
+        
+        {/* Brand Text */}
         <Typography
           variant="h6"
           component="div"
@@ -95,32 +98,132 @@ export function AppHeader({ onMenuClick }: AppHeaderProps) {
                 : "linear-gradient(135deg, #111827 40%, #7C5CFF 100%)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
-            fontSize: "1.1rem",
+            fontSize: "1rem",
+            lineHeight: 1,
+            userSelect: "none",
           }}
         >
           {APP_NAME}
         </Typography>
+
+        {/* Subtle Separator */}
+        <Box 
+          sx={{ 
+            width: "1px", 
+            height: "12px", 
+            backgroundColor: "var(--color-border)",
+            mx: 0.5,
+            opacity: 0.8,
+          }} 
+        />
+
+        {/* Workspace Muted Label */}
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            fontWeight: 500,
+            fontSize: "0.875rem",
+            letterSpacing: "-0.01em",
+            userSelect: "none",
+          }}
+        >
+          Planner
+        </Typography>
       </Stack>
 
-      <IconButton
-        onClick={toggleThemeMode}
-        aria-label="Toggle theme mode"
-        sx={{
-          color: "text.secondary",
-          p: "7px",
-          borderRadius: "var(--radius-sm)",
-          border: "1px solid var(--color-border)",
-          backgroundColor: "transparent",
-          transition: "all var(--transition-fast)",
-          "&:hover": {
-            backgroundColor: "var(--color-item-hover)",
-            borderColor: "var(--color-border-hover)",
-            color: "text.primary",
-          },
-        }}
-      >
-        {isDarkMode ? <SunIconSvg /> : <MoonIconSvg />}
-      </IconButton>
+      {/* Center Section (Intentionally Empty) */}
+      <Box sx={{ flexGrow: 1 }} />
+
+      {/* Right Section */}
+      <Stack direction="row" spacing={2.5} alignItems="center">
+        {/* Status Indicator */}
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ display: { xs: "none", sm: "flex" } }}>
+          <Box
+            sx={{
+              width: "6px",
+              height: "6px",
+              borderRadius: "50%",
+              backgroundColor: "#10b981", // vibrant green
+              boxShadow: "0 0 8px #10b981",
+              animation: "pulse 2.5s infinite ease-in-out",
+              "@keyframes pulse": {
+                "0%": { opacity: 0.5, transform: "scale(0.9)" },
+                "50%": { opacity: 1, transform: "scale(1.1)" },
+                "100%": { opacity: 0.5, transform: "scale(0.9)" },
+              },
+            }}
+          />
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              fontWeight: 500,
+              fontSize: "0.75rem",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            Runtime Ready
+          </Typography>
+        </Stack>
+
+        {/* Provider Badge */}
+        <Box
+          sx={{
+            display: { xs: "none", sm: "inline-flex" },
+            alignItems: "center",
+            px: 1.2,
+            py: 0.4,
+            borderRadius: "6px",
+            border: "1px solid var(--color-border)",
+            backgroundColor: (theme) =>
+              theme.palette.mode === "dark" ? "rgba(255, 255, 255, 0.03)" : "rgba(0, 0, 0, 0.02)",
+            backdropFilter: "blur(8px)",
+            userSelect: "none",
+            transition: "all 180ms cubic-bezier(0.4, 0, 0.2, 1)",
+            "&:hover": {
+              borderColor: "var(--color-border-hover)",
+              backgroundColor: (theme) =>
+                theme.palette.mode === "dark" ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.04)",
+              transform: "translateY(-0.5px)",
+            },
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 600,
+              fontSize: "0.68rem",
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              color: "text.secondary",
+            }}
+          >
+            GOAP Engine
+          </Typography>
+        </Box>
+
+        {/* Theme Toggle */}
+        <IconButton
+          onClick={toggleThemeMode}
+          aria-label="Toggle theme mode"
+          sx={{
+            color: "text.secondary",
+            p: "7px",
+            borderRadius: "var(--radius-sm)",
+            border: "1px solid var(--color-border)",
+            backgroundColor: "transparent",
+            transition: "all 150ms ease",
+            "&:hover": {
+              backgroundColor: "var(--color-item-hover)",
+              borderColor: "var(--color-border-hover)",
+              color: "text.primary",
+            },
+          }}
+        >
+          {isDarkMode ? <SunIconSvg /> : <MoonIconSvg />}
+        </IconButton>
+      </Stack>
     </Stack>
   );
 }
