@@ -10,10 +10,16 @@ import java.util.stream.Collectors;
 public class SearchReportResult {
     private final SearchResponse searchResponse;
     private final String destination;
+    private final String synthesizedContent;
 
     public SearchReportResult(SearchResponse searchResponse, String destination) {
+        this(searchResponse, destination, "");
+    }
+
+    public SearchReportResult(SearchResponse searchResponse, String destination, String synthesizedContent) {
         this.searchResponse = searchResponse;
         this.destination = destination;
+        this.synthesizedContent = synthesizedContent;
     }
 
     public SearchResponse getSearchResponse() {
@@ -22,6 +28,10 @@ public class SearchReportResult {
 
     public String getDestination() {
         return destination;
+    }
+
+    public String getSynthesizedContent() {
+        return synthesizedContent;
     }
 
     public String formatContent() {
@@ -34,14 +44,18 @@ public class SearchReportResult {
         sb.append("DESTINATION INFORMATION: ").append(destination).append("\n");
         sb.append("==================================================\n\n");
         
-        sb.append("Search Results:\n");
-        sb.append("--------------------------------------------------\n");
-        
-        String formatted = searchResponse.getResults().stream()
-                .map(r -> String.format("- %s\n  URL: %s\n  %s\n", r.getTitle(), r.getUrl(), r.getContent()))
-                .collect(Collectors.joining("\n"));
-        
-        sb.append(formatted);
+        if (synthesizedContent != null && !synthesizedContent.isEmpty()) {
+            sb.append(synthesizedContent).append("\n\n");
+        } else {
+            sb.append("Search Results:\n");
+            sb.append("--------------------------------------------------\n");
+            
+            String formatted = searchResponse.getResults().stream()
+                    .map(r -> String.format("- %s\n  URL: %s\n  %s\n", r.getTitle(), r.getUrl(), r.getContent()))
+                    .collect(Collectors.joining("\n"));
+            
+            sb.append(formatted);
+        }
         sb.append("\nResults Count: ").append(searchResponse.getResults().size()).append("\n");
         
         return sb.toString();

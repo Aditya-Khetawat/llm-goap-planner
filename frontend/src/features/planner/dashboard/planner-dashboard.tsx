@@ -59,6 +59,7 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
             maxWidth: "800px",
             mt: 1.5,
             lineHeight: 1.6,
+            whiteSpace: "pre-wrap"
           }}
         >
           {sanitizeText(result.summary)}
