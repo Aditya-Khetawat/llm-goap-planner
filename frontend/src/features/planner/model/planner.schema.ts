@@ -9,6 +9,8 @@ export const plannerGoalSchema = z.object({
   origin: z.string().trim().max(200).optional(),
   people: z.string().trim().max(100).optional(),
   budget: z.string().trim().max(100).optional(),
+  startDate: z.string().optional(), // YYYY-MM-DD
+  endDate: z.string().optional(),   // YYYY-MM-DD
 }).superRefine((data, ctx) => {
   if (data.mode === "text") {
     if (!data.goal || data.goal.trim().length < 3) {
@@ -26,6 +28,14 @@ export const plannerGoalSchema = z.object({
         path: ["destination"],
       });
     }
+    // Date cross-validation
+    if (data.startDate && data.endDate && data.startDate >= data.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "End date must be after start date.",
+        path: ["endDate"],
+      });
+    }
   }
 });
 
@@ -38,6 +48,8 @@ export const plannerGoalDefaults: PlannerGoalFormValues = {
   origin: "",
   people: "",
   budget: "",
+  startDate: "",
+  endDate: "",
 };
 
 export function compileGoal(values: PlannerGoalFormValues): string {
@@ -49,6 +61,8 @@ export function compileGoal(values: PlannerGoalFormValues): string {
   const orig = (values.origin || "").trim();
   const ppl = (values.people || "").trim();
   const bud = (values.budget || "").trim();
+  const start = (values.startDate || "").trim();
+  const end = (values.endDate || "").trim();
 
   let compiled = `Plan a trip to ${dest}`;
   if (orig) {
@@ -64,6 +78,9 @@ export function compileGoal(values: PlannerGoalFormValues): string {
   }
   if (bud) {
     compiled += ` with a budget of ${bud}`;
+  }
+  if (start && end) {
+    compiled += ` from ${start} to ${end}`;
   }
   return compiled;
 }

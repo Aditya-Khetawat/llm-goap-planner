@@ -347,98 +347,160 @@ public class TravelPlannerAgent {
     }
 
     @Action(description = "Get weather forecast for destination")
-    public WeatherReport getWeather(Destination dest) throws Exception {
+    public WeatherReport getWeather(Destination dest, TravelConstraints constraints) throws Exception {
         logger.info("Destination: Received Destination object on blackboard: {}", dest.name());
-        logger.info("getWeather: Fetching weather forecast for {}", dest.name());
+        String startDate = constraints != null ? constraints.startDate() : null;
+        String endDate   = constraints != null ? constraints.endDate()   : null;
+        int tripDays     = constraints != null && constraints.duration() != null
+                ? constraints.duration().days() : DEFAULT_DAYS;
+        boolean hasDates = startDate != null && !startDate.isBlank()
+                        && endDate   != null && !endDate.isBlank();
+        logger.info("getWeather: destination={}, tripDays={}, hasDates={} ({} to {})",
+                dest.name(), tripDays, hasDates, startDate, endDate);
+
+        boolean isMock = searchProvider == null ||
+                         searchProvider.getName() == null ||
+                         "MockProvider".equalsIgnoreCase(searchProvider.getName()) ||
+                         searchProvider.getClass().getName().contains("Mockito") ||
+                         searchProvider.getClass().getName().contains("Proxy");
+
+        // Step 1: Gather current-conditions context from provider as seed for the LLM
+        double seedTemp = 22.0;
+        StringBuilder providerContext = new StringBuilder();
         try {
-            WeatherReport report = weatherProvider.getWeather(dest.name());
-            logger.info("WeatherReport: Weather search completed, bound WeatherReport to blackboard");
-            return report;
-        } catch (Exception e) {
-            logger.warn("WeatherProvider failed for {}: {}. Attempting dynamic fallback with search + LLM.", dest.name(), e.getMessage());
-            boolean isMock = searchProvider == null || 
-                             searchProvider.getName() == null || 
-                             "MockProvider".equalsIgnoreCase(searchProvider.getName()) ||
-                             searchProvider.getClass().getName().contains("Mockito") ||
-                             searchProvider.getClass().getName().contains("Proxy");
-            if (chatModel != null && !isMock) {
-                try {
-                    String query = "current weather and forecast in " + dest.name();
-                    SearchResponse searchData = searchProvider.search(query);
-                    
-                    StringBuilder searchContent = new StringBuilder();
-                    if (searchData != null && searchData.getResults() != null) {
-                        for (com.cps.mcp.search.model.SearchResult r : searchData.getResults()) {
-                            searchContent.append(r.getTitle()).append(": ").append(r.getContent()).append("\n");
-                        }
-                    }
-                    
-                    String prompt = "Based on the following search results about the weather in " + dest.name() + ", extract the weather details.\n" +
-                            "Search Results:\n" + searchContent.toString() + "\n" +
-                            "Output EXACTLY a JSON object matching this structure (do not add any extra text or markdown formatting outside the JSON):\n" +
-                            "{\n" +
-                            "  \"temperature\": 22.5,\n" +
-                            "  \"condition\": \"Sunny\",\n" +
-                            "  \"humidity\": 60.0,\n" +
-                            "  \"windSpeed\": 15.0,\n" +
-                            "  \"severity\": \"GOOD\"\n" +
-                            "}\n" +
-                            "Note: 'severity' must be one of: GOOD, MODERATE, POOR. Provide reasonable estimates based on search results.";
-                    
-                    String llmOutput = chatModel.call(prompt);
-                    // Extract JSON from potential markdown code block
-                    if (llmOutput.contains("```")) {
-                        int start = llmOutput.indexOf("{");
-                        int end = llmOutput.lastIndexOf("}");
-                        if (start != -1 && end != -1 && end > start) {
-                            llmOutput = llmOutput.substring(start, end + 1);
-                        }
-                    }
-                    
-                    // Simple regex/json parsing to avoid importing external parsers
-                    double temperature = 20.0;
-                    String condition = "Partly Cloudy";
-                    double humidity = 50.0;
-                    double windSpeed = 10.0;
-                    String severityStr = "GOOD";
-                    
-                    java.util.regex.Pattern pTemp = java.util.regex.Pattern.compile("\"temperature\"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)");
-                    java.util.regex.Matcher mTemp = pTemp.matcher(llmOutput);
-                    if (mTemp.find()) temperature = Double.parseDouble(mTemp.group(1));
-                    
-                    java.util.regex.Pattern pCond = java.util.regex.Pattern.compile("\"condition\"\\s*:\\s*\"([^\"]+)\"");
-                    java.util.regex.Matcher mCond = pCond.matcher(llmOutput);
-                    if (mCond.find()) condition = mCond.group(1);
-                    
-                    java.util.regex.Pattern pHum = java.util.regex.Pattern.compile("\"humidity\"\\s*:\\s*(\\d+(?:\\.\\d+)?)");
-                    java.util.regex.Matcher mHum = pHum.matcher(llmOutput);
-                    if (mHum.find()) humidity = Double.parseDouble(mHum.group(1));
-                    
-                    java.util.regex.Pattern pWind = java.util.regex.Pattern.compile("\"windSpeed\"\\s*:\\s*(\\d+(?:\\.\\d+)?)");
-                    java.util.regex.Matcher mWind = pWind.matcher(llmOutput);
-                    if (mWind.find()) windSpeed = Double.parseDouble(mWind.group(1));
-                    
-                    java.util.regex.Pattern pSev = java.util.regex.Pattern.compile("\"severity\"\\s*:\\s*\"([^\"]+)\"");
-                    java.util.regex.Matcher mSev = pSev.matcher(llmOutput);
-                    if (mSev.find()) severityStr = mSev.group(1);
-                    
-                    com.cps.mcp.weather.model.WeatherReport.WeatherSeverity severity = com.cps.mcp.weather.model.WeatherReport.WeatherSeverity.GOOD;
-                    try {
-                        severity = com.cps.mcp.weather.model.WeatherReport.WeatherSeverity.valueOf(severityStr.toUpperCase().trim());
-                    } catch (Exception ex) {
-                        // fallback
-                    }
-                    
-                    WeatherReport report = new WeatherReport(dest.name(), temperature, condition, humidity, windSpeed, System.currentTimeMillis(), "tavily-fallback", severity);
-                    logger.info("Dynamic weather fallback succeeded: {}", report);
-                    return report;
-                } catch (Exception ex) {
-                    logger.error("Dynamic weather fallback failed: {}", ex.getMessage());
-                }
+            WeatherReport seed = weatherProvider.getWeather(dest.name());
+            if (seed != null) {
+                seedTemp = seed.getTemperature();
+                providerContext.append(String.format(
+                    "Current conditions from weather provider: %s, %.1f°C, humidity %.0f%%, wind %.1f km/h.\n",
+                    seed.getCondition(), seed.getTemperature(), seed.getHumidity(), seed.getWindSpeed()));
+                logger.info("getWeather: Provider seed: {}", providerContext.toString().trim());
             }
-            logger.warn("Dynamic weather fallback failed or unavailable. Returning mock weather report for {}.", dest.name());
-            return new WeatherReport(dest.name(), 20.0, "Mostly Sunny", 60.0, 12.0, System.currentTimeMillis(), "mock-weather-fallback", com.cps.mcp.weather.model.WeatherReport.WeatherSeverity.GOOD);
+        } catch (Exception e) {
+            logger.warn("getWeather: Provider seed failed ({}). Continuing without it.", e.getMessage());
         }
+
+        // Step 2: Always use LLM to generate per-day forecast when search+LLM are available
+        if (chatModel != null && !isMock) {
+            try {
+                String query = hasDates
+                    ? String.format("weather forecast in %s from %s to %s", dest.name(), startDate, endDate)
+                    : String.format("%d day weather forecast %s", tripDays, dest.name());
+                SearchResponse searchData = searchProvider.search(query);
+
+                StringBuilder searchContent = new StringBuilder(providerContext);
+                if (searchData != null && searchData.getResults() != null) {
+                    for (com.cps.mcp.search.model.SearchResult r : searchData.getResults()) {
+                        searchContent.append(r.getTitle()).append(": ").append(r.getContent()).append("\n");
+                    }
+                }
+
+                // Build the per-day label instruction
+                String dayLabels;
+                if (hasDates) {
+                    java.time.LocalDate s = java.time.LocalDate.parse(startDate);
+                    StringBuilder labels = new StringBuilder();
+                    for (int i = 0; i < tripDays; i++) {
+                        if (i > 0) labels.append(", ");
+                        labels.append(s.plusDays(i).toString());
+                    }
+                    dayLabels = "Produce one entry per travel day for these exact dates: " + labels +
+                        ". Format each entry as \"YYYY-MM-DD: <condition> <temp>°C\" separated by \" | \".";
+                } else {
+                    java.time.LocalDate today = java.time.LocalDate.now();
+                    StringBuilder labels = new StringBuilder();
+                    for (int i = 0; i < tripDays; i++) {
+                        if (i > 0) labels.append(", ");
+                        labels.append("Day ").append(i + 1)
+                              .append(" (").append(today.plusDays(i)).append(")");
+                    }
+                    dayLabels = "Produce one entry per travel day for " + tripDays + " days (" + labels +
+                        "). Format each entry as \"Day N (YYYY-MM-DD): <condition> <temp>°C\" separated by \" | \".";
+                }
+
+                String prompt = String.format(
+                    "You are a weather expert. Based on the information below, provide a realistic day-by-day weather forecast for %s.\n\n" +
+                    "Weather Data:\n%s\n" +
+                    "Instructions: %s\n\n" +
+                    "Output EXACTLY a JSON object with NO extra text or markdown fences:\n" +
+                    "{\n" +
+                    "  \"temperature\": <average temperature number>,\n" +
+                    "  \"condition\": \"<pipe-separated per-day entries, e.g. 2025-07-10: Sunny 28°C | 2025-07-11: Rainy 22°C>\",\n" +
+                    "  \"humidity\": <average humidity 0-100>,\n" +
+                    "  \"windSpeed\": <average wind speed km/h>,\n" +
+                    "  \"severity\": \"<GOOD|MODERATE|POOR>\"\n" +
+                    "}\n" +
+                    "Base estimates on typical seasonal climate if real data is unavailable. The condition MUST contain a per-day breakdown separated by ' | '.",
+                    dest.name(), searchContent.toString(), dayLabels
+                );
+
+                String llmOutput = chatModel.call(prompt);
+                logger.info("getWeather: LLM raw output: {}", llmOutput);
+
+                if (llmOutput.contains("```")) {
+                    int start = llmOutput.indexOf("{");
+                    int end = llmOutput.lastIndexOf("}");
+                    if (start != -1 && end != -1 && end > start) {
+                        llmOutput = llmOutput.substring(start, end + 1);
+                    }
+                }
+
+                double temperature = seedTemp;
+                String condition   = "Forecast unavailable";
+                double humidity    = 55.0;
+                double windSpeed   = 12.0;
+                String severityStr = "GOOD";
+
+                java.util.regex.Pattern pTemp = java.util.regex.Pattern.compile("\"temperature\"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)");
+                java.util.regex.Matcher mTemp = pTemp.matcher(llmOutput);
+                if (mTemp.find()) temperature = Double.parseDouble(mTemp.group(1));
+
+                java.util.regex.Pattern pCond = java.util.regex.Pattern.compile("\"condition\"\\s*:\\s*\"([^\"]+)\"");
+                java.util.regex.Matcher mCond = pCond.matcher(llmOutput);
+                if (mCond.find()) condition = mCond.group(1);
+
+                java.util.regex.Pattern pHum = java.util.regex.Pattern.compile("\"humidity\"\\s*:\\s*(\\d+(?:\\.\\d+)?)");
+                java.util.regex.Matcher mHum = pHum.matcher(llmOutput);
+                if (mHum.find()) humidity = Double.parseDouble(mHum.group(1));
+
+                java.util.regex.Pattern pWind = java.util.regex.Pattern.compile("\"windSpeed\"\\s*:\\s*(\\d+(?:\\.\\d+)?)");
+                java.util.regex.Matcher mWind = pWind.matcher(llmOutput);
+                if (mWind.find()) windSpeed = Double.parseDouble(mWind.group(1));
+
+                java.util.regex.Pattern pSev = java.util.regex.Pattern.compile("\"severity\"\\s*:\\s*\"([^\"]+)\"");
+                java.util.regex.Matcher mSev = pSev.matcher(llmOutput);
+                if (mSev.find()) severityStr = mSev.group(1);
+
+                com.cps.mcp.weather.model.WeatherReport.WeatherSeverity severity =
+                        com.cps.mcp.weather.model.WeatherReport.WeatherSeverity.GOOD;
+                try {
+                    severity = com.cps.mcp.weather.model.WeatherReport.WeatherSeverity
+                            .valueOf(severityStr.toUpperCase().trim());
+                } catch (Exception ex) { /* fallback to GOOD */ }
+
+                String provider = hasDates ? "llm-date-forecast" : "llm-daily-forecast";
+                WeatherReport report = new WeatherReport(dest.name(), temperature, condition,
+                        humidity, windSpeed, System.currentTimeMillis(), provider, severity);
+                logger.info("getWeather: Day-by-day forecast: {}", condition);
+                return report;
+
+            } catch (Exception ex) {
+                logger.error("getWeather: LLM daily forecast failed: {}", ex.getMessage());
+            }
+        }
+
+        // Step 3: Fallback — use provider result (single-condition) or hard mock
+        if (providerContext.length() > 0) {
+            try {
+                WeatherReport seed = weatherProvider.getWeather(dest.name());
+                logger.warn("getWeather: LLM unavailable. Returning single-condition provider report for {}.", dest.name());
+                return seed;
+            } catch (Exception ignored) {}
+        }
+        logger.warn("getWeather: All sources failed for {}. Returning mock.", dest.name());
+        return new WeatherReport(dest.name(), 20.0, "Mostly Sunny", 60.0, 12.0,
+                System.currentTimeMillis(), "mock-weather-fallback",
+                com.cps.mcp.weather.model.WeatherReport.WeatherSeverity.GOOD);
     }
 
     @Action(description = "Get route and travel directions details for destination")
@@ -469,24 +531,38 @@ public class TravelPlannerAgent {
     public TravelConstraints extractConstraints(UserInput input) {
         logger.info("extractConstraints: Extracting constraints from UserInput");
         String content = getUserInputContent(input);
-        if (content == null) {
-            content = "";
-        }
+        if (content == null) content = "";
         String normalized = content.toLowerCase();
 
-        // 1. Duration
+        // 1. Date range extraction  (YYYY-MM-DD from X to Y)
+        String startDate = null;
+        String endDate   = null;
         int days = DEFAULT_DAYS;
-        if (normalized.contains("weekend")) {
+
+        java.util.regex.Pattern dateRangePattern = java.util.regex.Pattern.compile(
+            "from\\s+(\\d{4}-\\d{2}-\\d{2})\\s+to\\s+(\\d{4}-\\d{2}-\\d{2})");
+        java.util.regex.Matcher dateRangeMatcher = dateRangePattern.matcher(content);
+        if (dateRangeMatcher.find()) {
+            startDate = dateRangeMatcher.group(1);
+            endDate   = dateRangeMatcher.group(2);
+            try {
+                java.time.LocalDate s = java.time.LocalDate.parse(startDate);
+                java.time.LocalDate e = java.time.LocalDate.parse(endDate);
+                long computed = java.time.temporal.ChronoUnit.DAYS.between(s, e);
+                days = computed > 0 ? (int) computed : 1;
+                logger.info("extractConstraints: Detected date range {} to {}, computed {} days", startDate, endDate, days);
+            } catch (Exception ex) {
+                logger.warn("extractConstraints: Failed to parse date range: {}", ex.getMessage());
+                startDate = null;
+                endDate   = null;
+            }
+        } else if (normalized.contains("weekend")) {
             days = 2;
         } else {
             java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(\\d+)\\s*-?\\s*days?");
             java.util.regex.Matcher matcher = pattern.matcher(normalized);
             if (matcher.find()) {
-                try {
-                    days = Integer.parseInt(matcher.group(1));
-                } catch (NumberFormatException e) {
-                    // fallback
-                }
+                try { days = Integer.parseInt(matcher.group(1)); } catch (NumberFormatException e) { /* fallback */ }
             }
         }
         TripDuration duration = new TripDuration(days);
@@ -513,7 +589,7 @@ public class TravelPlannerAgent {
         }
         TravelStyle travelStyle = new TravelStyle(styleVal);
 
-        TravelConstraints constraints = new TravelConstraints(duration, budgetPreference, travelStyle);
+        TravelConstraints constraints = new TravelConstraints(duration, budgetPreference, travelStyle, startDate, endDate);
         logger.info("extractConstraints: Extracted constraints={}", constraints);
         return constraints;
     }
@@ -849,16 +925,34 @@ public class TravelPlannerAgent {
         String llmItinerary = "";
         if (chatModel != null && !isMock) {
             try {
+                // Build date context for the itinerary prompt
+                String dateContext = "";
+                String weatherDailyNote = "";
+                // Extract dates from weather condition string if it contains day-by-day forecast
+                String weatherCondition = weatherData.getCondition();
+                boolean hasDailyForecast = weatherCondition != null && weatherCondition.contains("|");
+                if (hasDailyForecast) {
+                    weatherDailyNote = String.format(
+                        "Day-by-day weather forecast (match each itinerary day to its forecast):\n%s\n\n",
+                        weatherCondition.replace(" | ", "\n"));
+                }
+
                 String prompt = String.format(
-                    "You are an expert travel planner. Create a detailed daily itinerary for a %d-day trip to %s.\n" +
+                    "You are an expert travel planner. Create a detailed daily itinerary for a %d-day trip to %s.%s\n" +
                     "Use the following search results about the destination:\n%s\n\n" +
                     "The traveler's budget details are:\n- Duration: %d days\n- Total Cost Estimate: %s\n\n" +
-                    "The weather details are:\n- Location: %s\n- Condition: %s\n- Temperature: %.1f°C\n\n" +
+                    "%s" +
+                    "Overall weather summary:\n- Location: %s\n- Avg Temperature: %.1f°C\n- Severity: %s\n\n" +
                     "Route and distance details (include this routing in the daily plan):\n- %s\n\n" +
                     "Airbnb Accommodation options (recommend these stays in the daily plan where appropriate):\n%s\n\n" +
-                    "Generate a beautifully formatted, daily itinerary. Be specific and realistic based on the search results. Include names of attractions and recommendation tips. Do not include any introduction/greeting or generic remarks.",
-                    days, destination, searchResultsForLlm, days, budgetData.getTotalEstimate().toString(),
-                    weatherData.getLocation(), weatherData.getCondition(), weatherData.getTemperature(),
+                    "Generate a beautifully formatted daily itinerary. " +
+                    "For each day include: the calendar date (if known), the expected weather, and a specific activity schedule with attraction names and practical tips. " +
+                    "Do not include any introduction/greeting or generic remarks.",
+                    days, destination,
+                    dateContext,
+                    searchResultsForLlm, days, budgetData.getTotalEstimate().toString(),
+                    weatherDailyNote,
+                    weatherData.getLocation(), weatherData.getTemperature(), weatherData.getSeverity(),
                     routeInfoFormatted, accommodationFormatted
                 );
                 llmItinerary = chatModel.call(prompt);
