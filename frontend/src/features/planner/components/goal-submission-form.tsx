@@ -66,6 +66,8 @@ export function GoalSubmissionForm({
   const origin = useWatch({ control, name: "origin" }) || "";
   const people = useWatch({ control, name: "people" }) || "";
   const budget = useWatch({ control, name: "budget" }) || "";
+  const startDate = useWatch({ control, name: "startDate" }) || "";
+  const endDate = useWatch({ control, name: "endDate" }) || "";
 
   const compiledPrompt = compileGoal({
     mode: "form",
@@ -73,6 +75,8 @@ export function GoalSubmissionForm({
     origin,
     people,
     budget,
+    startDate,
+    endDate,
   });
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: "text" | "form") => {
@@ -250,6 +254,28 @@ export function GoalSubmissionForm({
                   error={Boolean(errors.budget)}
                   helperText="Maximum budget for the trip?"
                   {...register("budget")}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <AppTextField
+                  label="Start Date"
+                  placeholder=""
+                  type="date"
+                  error={Boolean(errors.startDate)}
+                  helperText={errors.startDate?.message ?? "When does the trip begin?"}
+                  InputLabelProps={{ shrink: true }}
+                  {...register("startDate")}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <AppTextField
+                  label="End Date"
+                  placeholder=""
+                  type="date"
+                  error={Boolean(errors.endDate)}
+                  helperText={errors.endDate?.message ?? "When does the trip end?"}
+                  InputLabelProps={{ shrink: true }}
+                  {...register("endDate")}
                 />
               </Grid>
             </Grid>
