@@ -34,6 +34,7 @@ export interface PlanResponse {
   steps: PlanStep[];
   trace: PlanTraceEntry[];
   mermaidDiagram: string;
+  ganttDiagram?: string;
   summary: string;
   source: string;
 }

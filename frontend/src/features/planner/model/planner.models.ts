@@ -11,6 +11,7 @@ export interface PlannerGeneratePlanResponse {
   steps: PlanStep[];
   trace: PlanTraceEntry[];
   mermaidDiagram: string;
+  ganttDiagram?: string;
   summary: string;
   source: string;
 }
