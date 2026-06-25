@@ -347,12 +347,40 @@ public class TravelPlannerAgent {
     }
 
     @Action(description = "Get weather forecast for destination")
-    public WeatherReport getWeather(Destination dest, TravelConstraints constraints) throws Exception {
+    public WeatherReport getWeather(Destination dest, UserInput input) throws Exception {
         logger.info("Destination: Received Destination object on blackboard: {}", dest.name());
-        String startDate = constraints != null ? constraints.startDate() : null;
-        String endDate   = constraints != null ? constraints.endDate()   : null;
-        int tripDays     = constraints != null && constraints.duration() != null
-                ? constraints.duration().days() : DEFAULT_DAYS;
+
+        // Extract dates and trip duration directly from the user's goal string
+        String content = getUserInputContent(input);
+        if (content == null) content = "";
+        String startDate = null;
+        String endDate   = null;
+        int tripDays     = DEFAULT_DAYS;
+
+        java.util.regex.Pattern dateRangePattern = java.util.regex.Pattern.compile(
+            "from\\s+(\\d{4}-\\d{2}-\\d{2})\\s+to\\s+(\\d{4}-\\d{2}-\\d{2})");
+        java.util.regex.Matcher dateRangeMatcher = dateRangePattern.matcher(content);
+        if (dateRangeMatcher.find()) {
+            startDate = dateRangeMatcher.group(1);
+            endDate   = dateRangeMatcher.group(2);
+            try {
+                java.time.LocalDate s = java.time.LocalDate.parse(startDate);
+                java.time.LocalDate e = java.time.LocalDate.parse(endDate);
+                long computed = java.time.temporal.ChronoUnit.DAYS.between(s, e);
+                tripDays = computed > 0 ? (int) computed : 1;
+            } catch (Exception ex) {
+                startDate = null; endDate = null;
+            }
+        } else if (content.toLowerCase().contains("weekend")) {
+            tripDays = 2;
+        } else {
+            java.util.regex.Pattern dayPat = java.util.regex.Pattern.compile("(\\d+)\\s*-?\\s*days?");
+            java.util.regex.Matcher dayMat = dayPat.matcher(content.toLowerCase());
+            if (dayMat.find()) {
+                try { tripDays = Integer.parseInt(dayMat.group(1)); } catch (NumberFormatException ignored) {}
+            }
+        }
+
         boolean hasDates = startDate != null && !startDate.isBlank()
                         && endDate   != null && !endDate.isBlank();
         logger.info("getWeather: destination={}, tripDays={}, hasDates={} ({} to {})",
@@ -685,11 +713,17 @@ public class TravelPlannerAgent {
                     
                     java.util.regex.Pattern pTrans = java.util.regex.Pattern.compile("\"transport\"\\s*:\\s*(\\d+(?:\\.\\d+)?)");
                     java.util.regex.Matcher mTrans = pTrans.matcher(llmOutput);
-                    if (mTrans.find()) transport = new BigDecimal(mTrans.group(1));
+                    if (mTrans.find()) {
+                        BigDecimal extracted = new BigDecimal(mTrans.group(1));
+                        transport = extracted.compareTo(BigDecimal.ZERO) > 0 ? extracted : DEFAULT_TRANSPORT_RATE;
+                    }
                     
                     java.util.regex.Pattern pMisc = java.util.regex.Pattern.compile("\"misc\"\\s*:\\s*(\\d+(?:\\.\\d+)?)");
                     java.util.regex.Matcher mMisc = pMisc.matcher(llmOutput);
-                    if (mMisc.find()) misc = new BigDecimal(mMisc.group(1));
+                    if (mMisc.find()) {
+                        BigDecimal extracted = new BigDecimal(mMisc.group(1));
+                        misc = extracted.compareTo(BigDecimal.ZERO) > 0 ? extracted : DEFAULT_MISC_RATE;
+                    }
                     
                     logger.info("Dynamic budget extraction succeeded: hotel={}, food={}, transport={}, misc={}", hotel, food, transport, misc);
                 } catch (Exception e) {
@@ -739,11 +773,17 @@ public class TravelPlannerAgent {
                     
                     java.util.regex.Pattern pTrans = java.util.regex.Pattern.compile("\"transport\"\\s*:\\s*(\\d+(?:\\.\\d+)?)");
                     java.util.regex.Matcher mTrans = pTrans.matcher(llmOutput);
-                    if (mTrans.find()) transport = new BigDecimal(mTrans.group(1));
+                    if (mTrans.find()) {
+                        BigDecimal extracted = new BigDecimal(mTrans.group(1));
+                        transport = extracted.compareTo(BigDecimal.ZERO) > 0 ? extracted : DEFAULT_TRANSPORT_RATE;
+                    }
                     
                     java.util.regex.Pattern pMisc = java.util.regex.Pattern.compile("\"misc\"\\s*:\\s*(\\d+(?:\\.\\d+)?)");
                     java.util.regex.Matcher mMisc = pMisc.matcher(llmOutput);
-                    if (mMisc.find()) misc = new BigDecimal(mMisc.group(1));
+                    if (mMisc.find()) {
+                        BigDecimal extracted = new BigDecimal(mMisc.group(1));
+                        misc = extracted.compareTo(BigDecimal.ZERO) > 0 ? extracted : DEFAULT_MISC_RATE;
+                    }
                     
                     extractedDynamically = true;
                     logger.info("Dynamic food/transport extraction succeeded: food={}, transport={}, misc={}", food, transport, misc);
@@ -892,13 +932,14 @@ public class TravelPlannerAgent {
 
         composedOutput.append("[3] Budget Estimate\n");
         composedOutput.append("--------------------------------------------------\n");
-        composedOutput.append("- Duration: ").append(days).append(" days\n");
-        composedOutput.append("- Hotel per Day: ").append(hotelPerDay).append("\n");
-        composedOutput.append("- Food per Day: ").append(foodPerDay).append("\n");
-        composedOutput.append("- Transport per Day: ").append(transportPerDay).append("\n");
-        composedOutput.append("- Misc per Day: ").append(miscPerDay).append("\n\n");
-        composedOutput.append("Budget Breakdown:\n");
-        composedOutput.append(budgetBreakdownFormatted).append("\n\n");
+        composedOutput.append("- Duration: ").append(days).append(" day").append(days > 1 ? "s" : "").append("\n");
+        composedOutput.append("- Hotel/Night: $").append(hotelPerDay).append("\n");
+        composedOutput.append("- Food/Day: $").append(foodPerDay).append("\n");
+        composedOutput.append("- Transport/Day: $").append(transportPerDay).append("\n");
+        composedOutput.append("- Misc/Day: $").append(miscPerDay).append("\n\n");
+        composedOutput.append("Total Breakdown (all ").append(days).append(" day").append(days > 1 ? "s" : "").append("):\n");
+        composedOutput.append(budgetBreakdownFormatted).append("\n");
+        composedOutput.append("  TOTAL: $").append(budgetData.getTotalEstimate()).append("\n\n");
 
         composedOutput.append("[4] Weather Forecast\n");
         composedOutput.append("--------------------------------------------------\n");
