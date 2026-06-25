@@ -104,6 +104,17 @@ const fadeInUp = {
 
 export function PlannerDashboard({ result }: PlannerDashboardProps) {
   const [isLogExpanded, setIsLogExpanded] = useState(true);
+  const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>(() => {
+    // Expand the first card by default for a nice premium initial load!
+    return { 1: true };
+  });
+
+  const toggleCard = (stepOrder: number) => {
+    setExpandedCards(prev => ({
+      ...prev,
+      [stepOrder]: !prev[stepOrder],
+    }));
+  };
 
   // 1. Parse Gantt details
   const parsedGanttTasks = useMemo(() => parseGanttTasks(result.ganttDiagram), [result.ganttDiagram]);
@@ -189,47 +200,50 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
     return mermaid;
   }, [normalizedTasks, result.goal]);
 
-  // 4. Generate Mermaid Gantt from normalizedTasks if ganttDiagram is present
+  // 4. Generate Mermaid Gantt from normalizedTasks (Task 4 & 7)
   const generatedGanttDiagram = useMemo(() => {
-    if (!result.ganttDiagram) return "";
-    
     const safeGoal = result.goal.replace(/["[\](){}]/g, "");
     let mermaid = "gantt\n";
-    mermaid += `    title ${safeGoal} Timeline\n`;
-    mermaid += "    dateFormat YYYY-MM-DD\n";
-    mermaid += "    axisFormat %b %d\n";
-    mermaid += "    tickInterval 1day\n";
-    mermaid += "    excludes weekends\n";
+    mermaid += `    title ${safeGoal} Execution Timeline\n`;
+    mermaid += "    dateFormat X\n";
+    mermaid += "    axisFormat %L\n\n";
+    mermaid += "    section Planning\n\n";
 
-    // Group tasks by assignedAgent (section)
-    const sectionsMap = new Map<string, typeof normalizedTasks>();
-    normalizedTasks.forEach(task => {
-      const sectionName = task.assignedAgent || "Execution";
-      if (!sectionsMap.has(sectionName)) {
-        sectionsMap.set(sectionName, []);
-      }
-      sectionsMap.get(sectionName)!.push(task);
-    });
-
-    const todayStr = new Date().toISOString().split("T")[0];
-
-    sectionsMap.forEach((agentTasks, agent) => {
-      mermaid += `    section ${agent}\n`;
-      agentTasks.forEach(task => {
-        const cleanLabel = task.name.replace(/:/g, " ").substring(0, 40);
-        const cleanDuration = task.estimatedDuration.replace(/\s*day(s)?/, "d").replace(/\s*hour(s)?/, "h");
-        
-        if (task.dependencies && task.dependencies.length > 0) {
-          const depsStr = task.dependencies.join(" ");
-          mermaid += `    ${cleanLabel} :${task.id}, after ${depsStr}, ${cleanDuration}\n`;
-        } else {
-          mermaid += `    ${cleanLabel} :${task.id}, ${todayStr}, ${cleanDuration}\n`;
+    normalizedTasks.forEach((task, index) => {
+      // Parse duration. If unavailable or empty, estimate automatically to 1 unit.
+      let durationVal = 1;
+      if (task.estimatedDuration) {
+        const match = task.estimatedDuration.match(/(\d+)/);
+        if (match && match[1]) {
+          durationVal = parseInt(match[1], 10);
         }
-      });
+      }
+
+      // Add status modifier based on state/index
+      let modifier = "";
+      if (index === 0) {
+        modifier = "done, ";
+      } else if (index === 1) {
+        modifier = "active, ";
+      }
+
+      // Sanitize task name (remove colons as they divide ID/duration)
+      const cleanLabel = task.name.replace(/:/g, " ");
+
+      // Filter out START and END node references from Gantt dependencies
+      const cleanDeps = task.dependencies.filter(dep => dep !== "START" && dep !== "END");
+
+      if (cleanDeps.length > 0) {
+        // Connect after the primary dependency
+        const primaryDep = cleanDeps[0];
+        mermaid += `    ${cleanLabel} :${modifier}${task.id}, after ${primaryDep}, ${durationVal}\n`;
+      } else {
+        mermaid += `    ${cleanLabel} :${modifier}${task.id}, 0, ${durationVal}\n`;
+      }
     });
 
     return mermaid;
-  }, [normalizedTasks, result.goal, result.ganttDiagram]);
+  }, [normalizedTasks, result.goal]);
 
   // 5. Console debugging showing raw planner response, normalized graph, and generated Mermaid string (Task 5 & 7)
   useEffect(() => {
@@ -334,7 +348,7 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
     <Stack spacing={7} sx={{ width: "100%", py: 2 }}>
       {/* Hero Section */}
       <Box>
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1.5 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
           <StatusBadge status={result.status} />
           {result.classification ? (
             <Chip
@@ -344,126 +358,209 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
               sx={{ opacity: 0.8, textTransform: "uppercase", fontWeight: 600, fontSize: "0.72rem" }}
             />
           ) : null}
-          <Typography variant="caption" color="text.secondary">
-            Source: {sanitizeText(result.source)}
-          </Typography>
+          <Chip
+            label={`Source: ${sanitizeText(result.source)}`}
+            size="small"
+            variant="outlined"
+            sx={{
+              opacity: 0.8,
+              textTransform: "uppercase",
+              fontWeight: 600,
+              fontSize: "0.72rem",
+              color: "text.secondary",
+              borderColor: "rgba(255, 255, 255, 0.08)",
+              backgroundColor: "rgba(255, 255, 255, 0.01)"
+            }}
+          />
+          <Chip
+            label={`Generated in ${planningTime}`}
+            size="small"
+            variant="outlined"
+            sx={{
+              opacity: 0.8,
+              textTransform: "uppercase",
+              fontWeight: 600,
+              fontSize: "0.72rem",
+              color: "text.secondary",
+              borderColor: "rgba(255, 255, 255, 0.08)",
+              backgroundColor: "rgba(255, 255, 255, 0.01)"
+            }}
+          />
         </Stack>
 
         <Typography variant="h1" component="h1" sx={{ mb: 2 }}>
           {result.goal}
         </Typography>
-
-        <Typography
-          variant="body1"
-          color="text.secondary"
-          sx={{
-            maxWidth: "800px",
-            mt: 1.5,
-            lineHeight: 1.6,
-            whiteSpace: "pre-wrap",
-          }}
-        >
-          {sanitizeText(result.summary)}
-        </Typography>
       </Box>
 
-      {/* Section 1: Execution Summary Grid */}
-      <Box sx={{ ...fadeInUp, animationDelay: "0.1s" }}>
-        <Typography
-          variant="h6"
-          component="h3"
-          fontWeight={700}
-          sx={{ color: "#F8FAFC", mb: 3, letterSpacing: "-0.015em", fontSize: "1.1rem" }}
-        >
-          Execution Summary
-        </Typography>
-        <Grid container spacing={3}>
-          {metricsList.map((item) => (
-            <Grid item xs={12} sm={6} md={4} key={item.label}>
-              <GlassCard
-                sx={{
-                  p: 3,
-                  height: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  position: "relative",
-                  overflow: "hidden",
-                  transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
-                  "&:hover": {
-                    transform: "translateY(-4px)",
-                    borderColor: "rgba(168, 85, 247, 0.4)",
-                    boxShadow: "0 20px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(139, 92, 246, 0.05)",
-                    "& .metric-glow": {
-                      opacity: 0.15,
-                    },
-                  },
-                }}
-              >
-                {/* Neon Corner Glow Effect on hover */}
-                <Box
-                  className="metric-glow"
-                  sx={{
-                    position: "absolute",
-                    top: "-50px",
-                    right: "-50px",
-                    width: "150px",
-                    height: "150px",
-                    borderRadius: "50%",
-                    backgroundColor: item.color,
-                    filter: "blur(40px)",
-                    opacity: 0.05,
-                    transition: "opacity 0.3s ease",
-                    pointerEvents: "none",
-                  }}
-                />
+      {/* Metrics and Composition Section */}
+      <Box sx={{ ...fadeInUp, animationDelay: "0.15s" }}>
+        <Grid container spacing={4}>
+          {/* Left Column: Key Metrics Grid */}
+          <Grid item xs={12} md={6}>
+            <Typography
+              variant="h6"
+              component="h3"
+              fontWeight={700}
+              sx={{ color: "#F8FAFC", mb: 2.5, letterSpacing: "-0.015em", fontSize: "1.1rem" }}
+            >
+              Execution Metrics
+            </Typography>
+            <Grid container spacing={2}>
+              {metricsList.filter(m => ["Total Tasks", "Estimated Duration", "Parallel Branches", "Active Agents"].includes(m.label)).map((item) => (
+                <Grid item xs={12} sm={6} key={item.label}>
+                  <GlassCard
+                    sx={{
+                      p: 3,
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      position: "relative",
+                      overflow: "hidden",
+                      transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+                      "&:hover": {
+                        transform: "translateY(-4px)",
+                        borderColor: "rgba(168, 85, 247, 0.4)",
+                        boxShadow: "0 20px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(139, 92, 246, 0.05)",
+                        "& .metric-glow": {
+                          opacity: 0.15,
+                        },
+                      },
+                    }}
+                  >
+                    {/* Neon Corner Glow Effect on hover */}
+                    <Box
+                      className="metric-glow"
+                      sx={{
+                        position: "absolute",
+                        top: "-50px",
+                        right: "-50px",
+                        width: "150px",
+                        height: "150px",
+                        borderRadius: "50%",
+                        backgroundColor: item.color,
+                        filter: "blur(40px)",
+                        opacity: 0.05,
+                        transition: "opacity 0.3s ease",
+                        pointerEvents: "none",
+                      }}
+                    />
 
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "#94A3B8",
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                        }}
+                      >
+                        {item.label}
+                      </Typography>
+                      <Box
+                        sx={{
+                          p: 1,
+                          borderRadius: "10px",
+                          backgroundColor: "rgba(255, 255, 255, 0.03)",
+                          border: "1px solid rgba(255, 255, 255, 0.05)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {item.icon}
+                      </Box>
+                    </Stack>
+
+                    <Typography
+                      variant="h4"
+                      fontWeight={800}
+                      sx={{
+                        color: "#F8FAFC",
+                        fontSize: "1.85rem",
+                        letterSpacing: "-0.02em",
+                        mb: 1,
+                        lineHeight: 1.1,
+                      }}
+                    >
+                      {item.value}
+                    </Typography>
+
+                    <Typography variant="caption" sx={{ color: "#64748B", display: "block", mt: "auto" }}>
+                      {item.description}
+                    </Typography>
+                  </GlassCard>
+                </Grid>
+              ))}
+            </Grid>
+          </Grid>
+
+          {/* Right Column: Workflow Map Composition */}
+          <Grid item xs={12} md={6}>
+            <Typography
+              variant="h6"
+              component="h3"
+              fontWeight={700}
+              sx={{ color: "#F8FAFC", mb: 2.5, letterSpacing: "-0.015em", fontSize: "1.1rem" }}
+            >
+              System Composition
+            </Typography>
+            <GlassCard
+              sx={{
+                p: 3,
+                height: { xs: "auto", md: "calc(100% - 2.5rem)" },
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                border: "1px solid rgba(168, 85, 247, 0.15)",
+                boxShadow: "0 10px 30px rgba(0, 0, 0, 0.25)",
+              }}
+            >
+              <Stack spacing={3}>
+                <Box>
                   <Typography
                     variant="caption"
-                    sx={{
-                      color: "#94A3B8",
-                      fontWeight: 600,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                    }}
+                    color="text.secondary"
+                    sx={{ textTransform: "uppercase", fontWeight: 600, display: "block", mb: 1.5, letterSpacing: "0.05em" }}
                   >
-                    {item.label}
+                    Active Specialized Agents
                   </Typography>
-                  <Box
-                    sx={{
-                      p: 1,
-                      borderRadius: "10px",
-                      backgroundColor: "rgba(255, 255, 255, 0.03)",
-                      border: "1px solid rgba(255, 255, 255, 0.05)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    {Array.from(new Set(result.steps.map(s => s.agent))).map(agent => (
+                      <AgentBadge key={agent} agent={agent} />
+                    ))}
+                  </Stack>
+                </Box>
+
+                <Box sx={{ pt: 2.5, borderTop: "1px solid rgba(255, 255, 255, 0.06)" }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ textTransform: "uppercase", fontWeight: 600, display: "block", mb: 1.5, letterSpacing: "0.05em" }}
                   >
-                    {item.icon}
-                  </Box>
-                </Stack>
-
-                <Typography
-                  variant="h4"
-                  fontWeight={800}
-                  sx={{
-                    color: "#F8FAFC",
-                    fontSize: "1.85rem",
-                    letterSpacing: "-0.02em",
-                    mb: 1,
-                    lineHeight: 1.1,
-                  }}
-                >
-                  {item.value}
-                </Typography>
-
-                <Typography variant="caption" sx={{ color: "#64748B", display: "block", mt: "auto" }}>
-                  {item.description}
-                </Typography>
-              </GlassCard>
-            </Grid>
-          ))}
+                    Execution Stages Summary
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    {result.steps.map((step, idx) => (
+                      <Chip
+                        key={step.order}
+                        label={`${idx + 1}. ${step.title}`}
+                        size="small"
+                        sx={{
+                          backgroundColor: "rgba(255, 255, 255, 0.03)",
+                          border: "1px solid rgba(255, 255, 255, 0.05)",
+                          color: "#E2E8F0",
+                          fontSize: "0.8rem",
+                          py: 1.5,
+                        }}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+              </Stack>
+            </GlassCard>
+          </Grid>
         </Grid>
       </Box>
 
@@ -473,15 +570,13 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
       </Box>
 
       {/* Section 3: Execution Timeline Gantt Roadmap */}
-      {generatedGanttDiagram ? (
-        <Box sx={{ ...fadeInUp, animationDelay: "0.4s" }}>
-          <MermaidDiagramViewer
-            diagram={generatedGanttDiagram}
-            title="Execution Roadmap"
-            description="Mermaid Gantt chart roadmap of scheduled execution tasks."
-          />
-        </Box>
-      ) : null}
+      <Box sx={{ ...fadeInUp, animationDelay: "0.4s" }}>
+        <MermaidDiagramViewer
+          diagram={generatedGanttDiagram}
+          title="Execution Timeline"
+          description="Mermaid Gantt chart timeline of scheduled execution tasks."
+        />
+      </Box>
 
       {/* Section 4: Collapsible Detailed Execution Log */}
       <Box sx={{ ...fadeInUp, animationDelay: "0.55s" }}>
@@ -529,6 +624,7 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
                   const ganttTask = parsedGanttTasks[index];
                   const stepDuration = ganttTask?.duration || "1 day";
                   const stepDeps = ganttTask?.dependencies.map((id) => stepIdToTitleMap[id] || id) || [];
+                  const isExpanded = !!expandedCards[step.order];
 
                   // Task Status heuristics
                   // 1st Complete, 2nd Running, Others Ready/Pending
@@ -552,7 +648,7 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
                         border: "1px solid rgba(255, 255, 255, 0.03)",
                         transition: "all 0.2s ease-in-out",
                         "&:hover": {
-                          backgroundColor: "rgba(255, 255, 255, 0.03)",
+                          backgroundColor: "rgba(255, 255, 255, 0.02)",
                           borderColor: "rgba(168, 85, 247, 0.2)",
                           "& .stepper-dot": {
                             boxShadow: `0 0 0 6px ${
@@ -604,18 +700,22 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
                         }}
                       />
 
-                      <Stack
-                        direction={{ xs: "column", sm: "row" }}
-                        justifyContent="space-between"
-                        alignItems={{ xs: "flex-start", sm: "center" }}
-                        spacing={2}
-                        sx={{ mb: 2 }}
+                      {/* Clickable Header for Collapsing/Expanding */}
+                      <Box
+                        onClick={() => toggleCard(step.order)}
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          cursor: "pointer",
+                          userSelect: "none",
+                        }}
                       >
-                        <Box>
+                        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ xs: "flex-start", sm: "center" }}>
                           <Typography variant="body1" fontWeight={700} color="#F8FAFC">
                             Step {step.order}: {step.title}
                           </Typography>
-                          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 0.8 }}>
+                          <Stack direction="row" spacing={1.5} alignItems="center">
                             <AgentBadge agent={step.agent} />
                             <StatusBadge
                               status={
@@ -627,62 +727,183 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
                               }
                             />
                           </Stack>
-                        </Box>
+                        </Stack>
 
-                        {/* Task metadata tags */}
-                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        <Stack direction="row" spacing={2} alignItems="center">
                           <Chip
-                            label={`Duration: ${stepDuration}`}
+                            label={stepDuration}
                             size="small"
                             variant="outlined"
-                            sx={{ borderColor: "rgba(255, 255, 255, 0.08)", color: "#94A3B8", fontSize: "0.75rem" }}
+                            sx={{
+                              borderColor: "rgba(255, 255, 255, 0.08)",
+                              color: "#94A3B8",
+                              fontSize: "0.75rem",
+                              display: { xs: "none", md: "inline-flex" }
+                            }}
                           />
-                          {stepDeps.length > 0 && (
-                            <Chip
-                              label={`Depends on: ${stepDeps.join(", ")}`}
-                              size="small"
-                              variant="outlined"
-                              sx={{
-                                borderColor: "rgba(255, 255, 255, 0.08)",
-                                color: "#94A3B8",
-                                fontSize: "0.75rem",
-                              }}
-                            />
-                          )}
+                          <IconButton
+                            size="small"
+                            sx={{
+                              color: "#94A3B8",
+                              transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                              transition: "transform 0.2s ease-in-out",
+                            }}
+                          >
+                            <ArrowDownIcon />
+                          </IconButton>
                         </Stack>
-                      </Stack>
+                      </Box>
 
-                      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, pl: 0.5 }}>
-                        {step.details}
-                      </Typography>
+                      {/* Expandable Details Container */}
+                      <Collapse in={isExpanded}>
+                        <Box sx={{ mt: 3, pt: 3, borderTop: "1px solid rgba(255, 255, 255, 0.06)" }}>
+                          <Grid container spacing={3}>
+                            {/* Left column: Purpose and Summary */}
+                            <Grid item xs={12} md={7}>
+                              <Stack spacing={2.5}>
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{ textTransform: "uppercase", fontWeight: 600, display: "block", mb: 0.8, letterSpacing: "0.05em" }}
+                                  >
+                                    Purpose
+                                  </Typography>
+                                  <Typography variant="body2" color="text.primary" sx={{ lineHeight: 1.6 }}>
+                                    {step.details}
+                                  </Typography>
+                                </Box>
 
-                      {step.output && (
-                        <Box
-                          sx={{
-                            mt: 2,
-                            p: 2,
-                            borderRadius: "8px",
-                            backgroundColor: "rgba(16, 185, 129, 0.02)",
-                            border: "1px solid rgba(16, 185, 129, 0.08)",
-                          }}
-                        >
-                          <Typography
-                            variant="caption"
-                            fontWeight={600}
-                            color="#10B981"
-                            sx={{ textTransform: "uppercase", display: "block", mb: 0.5 }}
-                          >
-                            Execution Output
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{ fontFamily: "monospace", fontSize: "0.85rem" }}
-                          >
-                            {step.output}
-                          </Typography>
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{ textTransform: "uppercase", fontWeight: 600, display: "block", mb: 0.8, letterSpacing: "0.05em" }}
+                                  >
+                                    Execution Summary
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                                    {displayStatus === "completed"
+                                      ? "The task has been successfully completed. The output has been captured and routed to dependent nodes."
+                                      : displayStatus === "running"
+                                        ? "This task is currently active. The specialized agent is processing requirements and running the execution pipeline."
+                                        : "This task is queued and pending. It will initiate automatically as soon as its predecessor tasks are completed."}
+                                  </Typography>
+                                </Box>
+                              </Stack>
+                            </Grid>
+
+                            {/* Right column: Metadata & completion state */}
+                            <Grid item xs={12} md={5}>
+                              <Stack spacing={2.5}>
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{ textTransform: "uppercase", fontWeight: 600, display: "block", mb: 1, letterSpacing: "0.05em" }}
+                                  >
+                                    Task Parameters
+                                  </Typography>
+                                  
+                                  <Stack spacing={1.5}>
+                                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                                      <Typography variant="caption" color="text.secondary">Estimated Duration</Typography>
+                                      <Chip
+                                        label={stepDuration}
+                                        size="small"
+                                        variant="outlined"
+                                        sx={{ borderColor: "rgba(255, 255, 255, 0.08)", color: "#E2E8F0" }}
+                                      />
+                                    </Box>
+
+                                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                                      <Typography variant="caption" color="text.secondary">Assigned Agent</Typography>
+                                      <AgentBadge agent={step.agent} />
+                                    </Box>
+
+                                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                                      <Typography variant="caption" color="text.secondary">Completion State</Typography>
+                                      <StatusBadge
+                                        status={
+                                          displayStatus === "completed"
+                                            ? "Complete"
+                                            : displayStatus === "running"
+                                              ? "In progress"
+                                              : "Ready"
+                                        }
+                                      />
+                                    </Box>
+                                  </Stack>
+                                </Box>
+
+                                {stepDeps.length > 0 && (
+                                  <Box>
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      sx={{ textTransform: "uppercase", fontWeight: 600, display: "block", mb: 1, letterSpacing: "0.05em" }}
+                                    >
+                                      Dependencies
+                                    </Typography>
+                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                      {stepDeps.map((dep, dIdx) => (
+                                        <Chip
+                                          key={dIdx}
+                                          label={dep}
+                                          size="small"
+                                          sx={{
+                                            backgroundColor: "rgba(255, 255, 255, 0.03)",
+                                            border: "1px solid rgba(255, 255, 255, 0.05)",
+                                            color: "#94A3B8",
+                                            fontSize: "0.75rem",
+                                          }}
+                                        />
+                                      ))}
+                                    </Stack>
+                                  </Box>
+                                )}
+                              </Stack>
+                            </Grid>
+                          </Grid>
+
+                          {/* Outputs */}
+                          {step.output && (
+                            <Box
+                              sx={{
+                                mt: 3,
+                                p: 2.5,
+                                borderRadius: "12px",
+                                backgroundColor: "rgba(16, 185, 129, 0.02)",
+                                border: "1px solid rgba(16, 185, 129, 0.08)",
+                              }}
+                            >
+                              <Typography
+                                variant="caption"
+                                fontWeight={600}
+                                color="#10B981"
+                                sx={{ textTransform: "uppercase", display: "block", mb: 1.5, letterSpacing: "0.05em" }}
+                              >
+                                Execution Output Logs
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{
+                                  fontFamily: "monospace",
+                                  fontSize: "0.85rem",
+                                  whiteSpace: "pre-wrap",
+                                  wordBreak: "break-all",
+                                  backgroundColor: "rgba(0, 0, 0, 0.2)",
+                                  p: 2,
+                                  borderRadius: "6px",
+                                }}
+                              >
+                                {step.output}
+                              </Typography>
+                            </Box>
+                          )}
                         </Box>
-                      )}
+                      </Collapse>
                     </Box>
                   );
                 })}

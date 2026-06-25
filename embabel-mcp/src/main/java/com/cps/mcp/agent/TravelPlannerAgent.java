@@ -1018,7 +1018,6 @@ public class TravelPlannerAgent {
     // --- Goal-Specific Composers ---
 
     @Action(description = "Compose weather information report")
-    @AchievesGoal(description = "Provide weather forecast")
     public WeatherReportResult composeWeatherInfo(WeatherReport weatherData) {
         logger.info("composeWeatherInfo: Composing weather information report");
         
@@ -1034,7 +1033,6 @@ public class TravelPlannerAgent {
     }
 
     @Action(description = "Compose budget estimate report")
-    @AchievesGoal(description = "Provide budget estimate")
     public BudgetReportResult composeBudgetInfo(BudgetEstimate budgetData) {
         logger.info("composeBudgetInfo: Composing budget estimate report");
         
@@ -1050,7 +1048,6 @@ public class TravelPlannerAgent {
     }
 
     @Action(description = "Compose destination information report")
-    @AchievesGoal(description = "Provide destination information")
     public SearchReportResult composeDestinationInfo(SearchResponse searchData) {
         logger.info("composeDestinationInfo: Composing destination information report");
         

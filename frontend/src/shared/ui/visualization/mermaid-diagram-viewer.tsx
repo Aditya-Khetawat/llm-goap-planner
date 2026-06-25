@@ -281,10 +281,10 @@ export function MermaidDiagramViewer({
         lineColor: "#8B5CF6",
         textColor: "#F8FAFC",
         fontFamily: "Inter, Segoe UI, sans-serif",
-        fontSize: "18px",
+        fontSize: "20px",
         mainBkg: "#091321",
         nodeBorder: "#8B5CF6",
-        nodePadding: "32px",
+        nodePadding: "36px",
         clusterBkg: "rgba(139, 92, 246, 0.03)",
         clusterBorder: "rgba(139, 92, 246, 0.15)",
         edgeLabelBackground: "#030712",
@@ -301,12 +301,12 @@ export function MermaidDiagramViewer({
         ...(config?.themeVariables ?? {}),
       },
       flowchart: {
-        nodeSpacing: 120, // spacious spacing
-        rankSpacing: 140, // spacious spacing
+        nodeSpacing: 150, // spacious spacing
+        rankSpacing: 160, // spacious spacing
         curve: "basis",   // smooth curves
         useMaxWidth: true,
         htmlLabels: false,
-        padding: 30,
+        padding: 40,
       },
       gantt: {
         titlePadding: 24,
@@ -396,6 +396,28 @@ export function MermaidDiagramViewer({
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
+
+  const fitToScreenRef = useRef(fitToScreen);
+  useEffect(() => {
+    fitToScreenRef.current = fitToScreen;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      fitToScreenRef.current();
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!containerRef.current || loading) return;
+    const observer = new ResizeObserver(() => {
+      fitToScreenRef.current();
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [loading]);
 
   useEffect(() => {
     let isActive = true;
@@ -505,15 +527,15 @@ export function MermaidDiagramViewer({
         // 2. Customize flowchart nodes (only rects for rounded corners)
         const rects = svgElement.querySelectorAll(".node rect");
         rects.forEach(rect => {
-          rect.setAttribute("rx", "18");
-          rect.setAttribute("ry", "18");
+          rect.setAttribute("rx", "24");
+          rect.setAttribute("ry", "24");
         });
 
         // 3. Flowchart edge connection colors using gradient (no buggy/hidden draw animations)
         const edgePaths = svgElement.querySelectorAll(".edgePath .path");
         edgePaths.forEach((path) => {
           path.setAttribute("stroke", "url(#purple-gradient)");
-          path.setAttribute("stroke-width", "3");
+          path.setAttribute("stroke-width", "4");
         });
 
         // 4. Customize Gantt timeline bars (rounded corners, no hidden opacity/scale animations)
@@ -1061,9 +1083,59 @@ export function MermaidDiagramViewer({
         ) : null}
 
         {errorMessage ? (
-          <Alert severity="warning" variant="outlined" sx={{ mb: 2, borderColor: "rgba(245, 158, 11, 0.2)", color: "#F59E0B" }}>
-            {errorMessage}
-          </Alert>
+          <Stack spacing={2} sx={{ mb: 3, width: "100%" }}>
+            <Alert
+              severity="error"
+              variant="outlined"
+              sx={{ borderColor: "rgba(239, 68, 68, 0.25)", color: "#EF4444", backgroundColor: "rgba(239, 68, 68, 0.02)" }}
+            >
+              <Typography variant="subtitle2" fontWeight={700}>
+                Mermaid Syntax/Rendering Error
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {errorMessage}
+              </Typography>
+            </Alert>
+            <Box
+              sx={{
+                p: 2.5,
+                borderRadius: "12px",
+                backgroundColor: "rgba(255, 255, 255, 0.02)",
+                border: "1px solid rgba(255, 255, 255, 0.06)",
+                overflowX: "auto",
+                width: "100%",
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "#94A3B8",
+                  display: "block",
+                  mb: 1.5,
+                  textTransform: "uppercase",
+                  fontWeight: 600,
+                  letterSpacing: "0.05em",
+                }}
+              >
+                Mermaid Diagram Source
+              </Typography>
+              <Typography
+                variant="body2"
+                component="pre"
+                sx={{
+                  fontFamily: "monospace, Courier New, monospace",
+                  fontSize: "0.85rem",
+                  color: "#94A3B8",
+                  whiteSpace: "pre",
+                  m: 0,
+                  backgroundColor: "transparent",
+                  border: "none",
+                }}
+              >
+                {diagram}
+              </Typography>
+            </Box>
+          </Stack>
         ) : null}
 
         {/* Drag and Wheel Event Listener wrapper */}
