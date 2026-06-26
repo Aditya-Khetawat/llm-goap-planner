@@ -217,50 +217,139 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
     return mermaid;
   }, [normalizedTasks, result.goal]);
 
-  // 4. Generate Mermaid Gantt from normalizedTasks (Task 4 & 7)
-  const generatedGanttDiagram = useMemo(() => {
-    const safeGoal = result.goal.replace(/["[\](){}]/g, "");
-    let mermaid = "gantt\n";
-    mermaid += `    title ${safeGoal} Execution Timeline\n`;
-    mermaid += "    dateFormat X\n";
-    mermaid += "    axisFormat %L\n\n";
-    mermaid += "    section Planning\n\n";
+  // ── Semantic phase classification ─────────────────────────────────────────
+  // Maps each task into one of five canonical phases based on keywords found
+  // in the task name or the assigned agent string.
+  const PHASE_ORDER = ["Planning", "Retrieval", "Reasoning", "Validation", "Output"] as const;
+  type Phase = typeof PHASE_ORDER[number];
 
-    normalizedTasks.forEach((task, index) => {
-      // Parse duration. If unavailable or empty, estimate automatically to 1 unit.
-      let durationVal = 1;
-      if (task.estimatedDuration) {
-        const match = task.estimatedDuration.match(/(\d+)/);
-        if (match && match[1]) {
-          durationVal = parseInt(match[1], 10);
-        }
-      }
+  const PHASE_COLORS: Record<Phase, string> = {
+    Planning:   "#6366F1",  // indigo
+    Retrieval:  "#06B6D4",  // cyan
+    Reasoning:  "#8B5CF6",  // violet
+    Validation: "#10B981",  // emerald
+    Output:     "#F59E0B",  // amber
+  };
 
-      // Add status modifier based on state/index
-      let modifier = "";
-      if (index === 0) {
-        modifier = "done, ";
-      } else if (index === 1) {
-        modifier = "active, ";
-      }
+  function classifyPhase(name: string, agent: string): Phase {
+    const hay = (name + " " + agent).toLowerCase();
+    if (/\b(plan|init|setup|define|goal|decomp|break|strateg|schedul)/.test(hay)) return "Planning";
+    if (/\b(fetch|retriev|search|query|lookup|collect|gather|scan|source)/.test(hay)) return "Retrieval";
+    if (/\b(reason|analys|evaluat|think|infer|model|process|compute|rank|score|priorit)/.test(hay)) return "Reasoning";
+    if (/\b(valid|verif|check|review|test|audit|inspect|confirm|ensur)/.test(hay)) return "Validation";
+    if (/\b(output|generat|render|creat|write|report|summar|format|present|deliver|publish)/.test(hay)) return "Output";
+    return "Reasoning"; // sensible default
+  }
 
-      // Sanitize task name (remove colons as they divide ID/duration)
-      const cleanLabel = task.name.replace(/:/g, " ");
+  // 4. Generate improved Mermaid Gantt from normalizedTasks
+  const { ganttDiagram: generatedGanttDiagram, ganttLegend } = useMemo(() => {
+    // ── Convert a raw task name into readable title-case words ───────────────
+    // Handles camelCase, PascalCase, underscores, hyphens, and excess whitespace
+    function humanLabel(raw: string, maxLen = 16): string {
+      const spaced = raw
+        // split camelCase / PascalCase boundaries
+        .replace(/([a-z])([A-Z])/g, "$1 $2")
+        .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+        // replace underscores, hyphens, colons with spaces
+        .replace(/[_\-:;#|]+/g, " ")
+        // collapse whitespace
+        .replace(/\s+/g, " ")
+        .trim();
 
-      // Filter out START and END node references from Gantt dependencies
-      const cleanDeps = task.dependencies.filter(dep => dep !== "START" && dep !== "END");
+      // Title-case every word
+      const titled = spaced
+        .split(" ")
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(" ");
 
-      if (cleanDeps.length > 0) {
-        // Connect after the primary dependency
-        const primaryDep = cleanDeps[0];
-        mermaid += `    ${cleanLabel} :${modifier}${task.id}, after ${primaryDep}, ${durationVal}\n`;
-      } else {
-        mermaid += `    ${cleanLabel} :${modifier}${task.id}, 0, ${durationVal}\n`;
-      }
+      if (titled.length <= maxLen) return titled;
+      // Truncate at last whole word before limit
+      const cut = titled.slice(0, maxLen - 1).trimEnd();
+      return cut + "\u2026";
+    }
+
+    // ── Uniform duration + sequential positioning ───────────────────────────────────
+    // Every task gets dur=1 and starts at its array index so all bars are
+    // exactly the same width. The axis ticks are later relabelled “Step N”
+    // by SVG post-processing, so the underlying ISO date is irrelevant.
+    const taskDurations = new Map<string, number>();
+    const taskStartDay  = new Map<string, number>();
+    normalizedTasks.forEach((task, idx) => {
+      taskDurations.set(task.id, 1);
+      taskStartDay.set(task.id, idx);
     });
 
-    return mermaid;
-  }, [normalizedTasks, result.goal]);
+
+    function toIso(dayN: number): string {
+      const d = new Date("2024-01-01");
+      d.setDate(d.getDate() + dayN);
+      return [
+        d.getFullYear(),
+        String(d.getMonth() + 1).padStart(2, "0"),
+        String(d.getDate()).padStart(2, "0"),
+      ].join("-");
+    }
+
+    // ── Classify every task into a phase ────────────────────────────────────
+    const taskPhase = new Map<string, Phase>();
+    normalizedTasks.forEach(t => taskPhase.set(t.id, classifyPhase(t.name, t.assignedAgent)));
+
+    // ── Detect critical path: tasks that no other task depends on = terminal
+    const depSet = new Set(normalizedTasks.flatMap(t => t.dependencies));
+    const terminalTasks = normalizedTasks.filter(t => !depSet.has(t.id));
+    const criticalIds = new Set(terminalTasks.map(t => t.id));
+    // No milestone — last task renders as a normal rectangle, not a diamond.
+    // Mermaid milestone diamonds always position their label outside the shape,
+    // which cannot be reliably clipped. crit keeps the final bar rectangular.
+
+    // ── Group by phase, preserving global order within each phase ──────────
+    const phaseGroups = new Map<Phase, typeof normalizedTasks>();
+    PHASE_ORDER.forEach(p => phaseGroups.set(p, []));
+    normalizedTasks.forEach(t => phaseGroups.get(taskPhase.get(t.id)!)!.push(t));
+    const activePhases = PHASE_ORDER.filter(p => phaseGroups.get(p)!.length > 0);
+
+    // ── Build Gantt string ─────────────────────────────────────────────────
+    // No `title` directive — the React card header already shows the title.
+    // This avoids duplicate text and wasted vertical space inside the SVG.
+    let mermaid = "gantt\n";
+    mermaid += "    dateFormat YYYY-MM-DD\n";
+    mermaid += "    axisFormat %b %d\n";
+    mermaid += "    todayMarker off\n\n";
+
+    activePhases.forEach(phase => {
+      const tasks = phaseGroups.get(phase)!;
+      mermaid += `    section ${phase}\n`;
+
+      tasks.forEach(task => {
+        const globalIdx  = normalizedTasks.indexOf(task);
+        const dur        = taskDurations.get(task.id) ?? 1;
+        const start      = taskStartDay.get(task.id) ?? 0;
+        // All tasks render as rectangles (no milestone diamond)
+        const isCrit = criticalIds.has(task.id);
+
+        let modifier = "";
+        if (isCrit)               modifier = "crit, ";
+        else if (globalIdx === 0) modifier = "done, ";
+        else if (globalIdx === 1) modifier = "active, ";
+
+        const label     = humanLabel(task.name);
+        const startDate = toIso(start);
+        const endDate   = toIso(start + dur);
+
+        mermaid += `    ${label} :${modifier}${task.id}, ${startDate}, ${endDate}\n`;
+      });
+      mermaid += "\n";
+    });
+
+    // ── Build legend metadata ──────────────────────────────────────────────
+    const legend = activePhases.map(phase => ({
+      phase,
+      color: PHASE_COLORS[phase],
+      count: phaseGroups.get(phase)!.length,
+    }));
+
+    return { ganttDiagram: mermaid, ganttLegend: legend };
+  }, [normalizedTasks]);
 
   // 5. Console debugging showing raw planner response, normalized graph, and generated Mermaid string (Task 5 & 7)
   useEffect(() => {
@@ -589,12 +678,54 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
         <MermaidDiagramViewer diagram={generatedMermaidDiagram} />
       </Box>
 
-      {/* Section 3: Execution Timeline Gantt Roadmap */}
-      <Box sx={{ ...fadeInUp, animationDelay: "0.4s" }}>
+      {/* Section 3: Execution Timeline Gantt Roadmap — full width, independent of flowchart */}
+      <Box sx={{ ...fadeInUp, animationDelay: "0.4s", width: "100%" }}>
         <MermaidDiagramViewer
           diagram={generatedGanttDiagram}
           title="Execution Timeline"
-          description="Mermaid Gantt chart timeline of scheduled execution tasks."
+          description={`Resource usage and scheduling across ${result.steps.length} tasks — critical path highlighted in red.`}
+          maxWidth="100%"
+          legendSlot={
+            ganttLegend.length > 0 ? (
+              <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
+                {ganttLegend.map(({ phase, color, count }) => (
+                  <Stack key={phase} direction="row" spacing={0.75} alignItems="center">
+                    <Box
+                      sx={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: "3px",
+                        backgroundColor: color,
+                        flexShrink: 0,
+                        boxShadow: `0 0 6px ${color}55`,
+                      }}
+                    />
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "#94A3B8", fontWeight: 600, fontSize: "0.75rem" }}
+                    >
+                      {phase}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: "#475569",
+                        fontSize: "0.7rem",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {count}
+                    </Typography>
+                  </Stack>
+                ))}
+                {/* Critical-path key */}
+                <Stack direction="row" spacing={0.75} alignItems="center" sx={{ ml: 1.5, pl: 1.5, borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
+                  <Box sx={{ width: 10, height: 10, borderRadius: "3px", backgroundColor: "#DC2626", flexShrink: 0, boxShadow: "0 0 6px #DC262655" }} />
+                  <Typography variant="caption" sx={{ color: "#94A3B8", fontWeight: 600, fontSize: "0.75rem" }}>Critical</Typography>
+                </Stack>
+              </Stack>
+            ) : undefined
+          }
         />
       </Box>
 

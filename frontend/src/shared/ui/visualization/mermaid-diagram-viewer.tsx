@@ -72,6 +72,8 @@ export interface MermaidDiagramViewerProps {
   description?: string;
   config?: MermaidConfig;
   maxWidth?: string | number;
+  /** Optional React node rendered as a legend strip inside the header */
+  legendSlot?: React.ReactNode;
 }
 
 const defaultConfig: MermaidConfig = {
@@ -256,6 +258,7 @@ export function MermaidDiagramViewer({
   description = "Generated execution plan based on your goal.",
   config,
   maxWidth = "400px",
+  legendSlot,
 }: MermaidDiagramViewerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewerContainerRef = useRef<HTMLDivElement | null>(null);
@@ -287,16 +290,17 @@ export function MermaidDiagramViewer({
         titleColor: "#F8FAFC",
         ganttLabelColor: "#F8FAFC",
         ganttLabelFontSize: "14px",
-        ganttTitleColor: "#F8FAFC",
-        ganttTitleFontSize: "20px",
+        // Title is rendered in the React header — suppress the SVG duplicate
+        ganttTitleColor: "transparent",
+        ganttTitleFontSize: "0px",
         ganttSectionBkgColor: "transparent",
         ganttSectionBkgColor2: "transparent",
-        ganttGridLineColor: "rgba(255, 255, 255, 0.05)",
-        ganttTodayLineColor: "#EF4444",
+        ganttGridLineColor: "rgba(255, 255, 255, 0.03)",
+        ganttTodayLineColor: "transparent",
         ...(config?.themeVariables ?? {}),
       },
         flowchart: {
-          nodeSpacing: 20, // slightly more spacing
+          nodeSpacing: 20,
           rankSpacing: 20,
           curve: "basis",
           useMaxWidth: true,
@@ -305,15 +309,15 @@ export function MermaidDiagramViewer({
         },
         securityLevel: "loose",
       gantt: {
-        titlePadding: 24,
-        barHeight: 32, // Increased task bar height
-        barGap: 12,    // Better spacing
-        topPadding: 60,
-        sidePadding: 100,
-        fontSize: 14,
-        sectionFontSize: 18,
-        useWidth: 1200,
-        useMaxWidth: true,
+        titlePadding: 0,
+        barHeight: 34,    // tall enough for 13px text + padding; 22 was too small
+        barGap: 12,
+        topPadding: 40,
+        sidePadding: 110,
+        fontSize: 13,
+        sectionFontSize: 12,
+        useWidth: 1100,
+        useMaxWidth: false,
         ...(config?.gantt ?? {}),
       },
     }),
@@ -439,11 +443,24 @@ export function MermaidDiagramViewer({
           path.setAttribute("stroke-width", "4");
         });
 
-        // 4. Customize Gantt timeline bars (rounded corners, no hidden opacity/scale animations)
+        // 4. Gantt bars: use a small corner radius for flat timeline-bar style
         const ganttRects = svgElement.querySelectorAll("rect.task, rect.done, rect.active, rect.crit");
         ganttRects.forEach((rect) => {
-          rect.setAttribute("rx", "8");
-          rect.setAttribute("ry", "8");
+          rect.setAttribute("rx", "3");
+          rect.setAttribute("ry", "3");
+        });
+
+        // 5. Delete outside-bar text from the SVG DOM — the most reliable way
+        //    to prevent labels from overflowing bars. CSS display:none can be
+        //    overridden by Mermaid's own inline styles; removing the nodes is not.
+        svgElement.querySelectorAll("text.taskTextOutside").forEach(el => el.remove());
+
+        // 6. Replace date axis tick labels with ordinal "Step N" labels.
+        //    Mermaid Gantt has no native non-date axis format, so we mutate the
+        //    rendered SVG text nodes directly after rendering.
+        const axisTicks = Array.from(svgElement.querySelectorAll(".tick text"));
+        axisTicks.forEach((el, i) => {
+          el.textContent = `Step ${i + 1}`;
         });
 
         const importedSvg = document.importNode(sanitizeSvg(svgElement), true);
@@ -785,7 +802,7 @@ export function MermaidDiagramViewer({
         flexDirection: "column",
         width: "100%",
         maxWidth: maxWidth,
-        mx: "auto",
+        mx: maxWidth === "100%" ? 0 : "auto",
         borderRadius: "16px",
         border: "1px solid rgba(168, 85, 247, 0.12)",
         backgroundColor: "#030712",
@@ -795,7 +812,7 @@ export function MermaidDiagramViewer({
         transition: "all var(--transition-normal)",
         overflow: "hidden",
         position: "relative",
-        minHeight: "180px",
+        minHeight: maxWidth === "100%" ? "500px" : "180px",
       }}
     >
       {/* Header Toolbar */}
@@ -822,6 +839,19 @@ export function MermaidDiagramViewer({
             {description}
           </Typography>
         </Box>
+
+        {/* Legend slot — rendered between title and action buttons */}
+        {legendSlot ? (
+          <Box
+            sx={{
+              flex: 1,
+              px: { xs: 0, sm: 2 },
+              py: 0.5,
+            }}
+          >
+            {legendSlot}
+          </Box>
+        ) : null}
 
         {/* glassmorphism toolbar */}
         <Stack
@@ -944,19 +974,16 @@ export function MermaidDiagramViewer({
           </Stack>
         ) : null}
 
-        {/* Diagram wrapper */}
+        {/* Diagram wrapper — fills full width, no scroll */}
         <Box
           sx={{
             flexGrow: 1,
-            display: loading ? "none" : "flex",
-            justifyContent: "center",
-            alignItems: "flex-start",
-            overflow: "auto", 
-            minHeight: "280px",
-            position: "relative",
+            display: loading ? "none" : "block",
             width: "100%",
-            height: "100%",
-            p: 1,
+            overflow: "hidden",
+            minHeight: maxWidth === "100%" ? "360px" : "220px",
+            position: "relative",
+            p: 0,
           }}
         >
           <Box
@@ -966,9 +993,7 @@ export function MermaidDiagramViewer({
             role="img"
             aria-busy={loading}
             sx={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "flex-start",
+              display: "block",
               width: "100%",
               height: "auto",
               animation: "diagramFadeIn 750ms cubic-bezier(0.16, 1, 0.3, 1) forwards",
@@ -979,9 +1004,9 @@ export function MermaidDiagramViewer({
               "& svg": {
                 width: "100%",
                 height: "auto",
+                minHeight: maxWidth === "100%" ? "320px" : "auto",
                 maxWidth: "100%",
                 display: "block",
-                mx: "auto",
                 background: "transparent !important",
                 // Mermaid default styling removals
                 "& g.classGroup, & rect.classGroup": {
@@ -1075,100 +1100,92 @@ export function MermaidDiagramViewer({
                   color: "#94A3B8 !important",
                 },
                 // Gantt Chart Custom Styles
+                // Hide the SVG title text — the React card header is the title
+                "& text.titleText, & .titleText": {
+                  display: "none !important",
+                },
                 "& rect.secNode, & .secNode": {
-                  fill: "rgba(255, 255, 255, 0.02) !important",
-                  stroke: "rgba(255, 255, 255, 0.05) !important",
+                  fill: "rgba(255, 255, 255, 0.012) !important",
+                  stroke: "rgba(255, 255, 255, 0.035) !important",
                   strokeWidth: "1px !important",
                 },
-                "& .grid .tick text, & .axisFormat, & text.titleText, & .tick text, & text.axisFormat": {
+                "& .grid .tick text, & .axisFormat, & .tick text, & text.axisFormat": {
                   fontFamily: "Inter, sans-serif !important",
                   fontSize: "13px !important",
-                  fontWeight: "600 !important",
-                  fill: "#94A3B8 !important",
+                  fontWeight: "500 !important",
+                  fill: "#475569 !important",
                 },
                 "& .grid line, & .tick line, & .grid .tick line, & line.grid": {
-                  stroke: "rgba(255, 255, 255, 0.05) !important",
+                  stroke: "rgba(255, 255, 255, 0.035) !important",
                   strokeWidth: "1px !important",
+                  strokeDasharray: "3 5 !important",
                 },
-                "& text.taskText, & text.taskTextOutside, & .taskText, & .taskTextOutside": {
+                // ── Task labels ───────────────────────────────────────────────────────
+                // Inside-bar text: style it nicely.
+                "& text.taskText, & .taskText": {
                   fontFamily: "Inter, sans-serif !important",
-                  fontSize: "14px !important",
-                  fontWeight: "500 !important",
-                  fill: "#F8FAFC !important",
+                  fontSize: "12px !important",
+                  fontWeight: "600 !important",
+                  fill: "#FFFFFF !important",
+                  letterSpacing: "0em !important",
+                  dominantBaseline: "central !important",
+                  pointerEvents: "none !important",
+                },
+                // Outside-bar text: HIDE completely so labels never overflow.
+                "& text.taskTextOutside, & .taskTextOutside": {
+                  display: "none !important",
                 },
                 "& text.sectionTitle, & .sectionTitle": {
                   fontFamily: "Inter, sans-serif !important",
-                  fontSize: "16px !important",
-                  fontWeight: "600 !important",
-                  fill: "#F8FAFC !important",
+                  fontSize: "11px !important",
+                  fontWeight: "700 !important",
+                  fill: "#64748B !important",
+                  textTransform: "uppercase !important",
+                  letterSpacing: "0.07em !important",
                 },
-                "& rect.task, & .task rect": {
-                  fill: "#3B82F6 !important",
-                  stroke: "rgba(59, 130, 246, 0.3) !important",
+                // ── Gantt task bars ─────────────────────────────────────────────────────
+                // Single unified blue for all non-accent tasks.
+                // crit and milestone are the only distinct accent colors.
+                "& rect.task, & rect.done, & rect.active": {
+                  fill: "#3563D4 !important",
+                  stroke: "rgba(53, 99, 212, 0.20) !important",
                   strokeWidth: "1px !important",
-                  rx: "8px !important",
-                  ry: "8px !important",
-                  filter: "drop-shadow(0 4px 8px rgba(0, 0, 0, 0.25)) !important",
-                  transition: "all 200ms ease-in-out !important",
+                  // Enable smooth hover transitions
+                  transition: "filter 220ms cubic-bezier(0.4,0,0.2,1), transform 220ms cubic-bezier(0.4,0,0.2,1) !important",
+                  transformBox: "fill-box !important",
+                  transformOrigin: "center !important",
+                  cursor: "pointer !important",
                 },
-                "& .task:hover rect, & rect.task:hover": {
-                  fill: "#4f8ff7 !important",
-                  stroke: "rgba(59, 130, 246, 0.6) !important",
-                  filter: "drop-shadow(0 0 12px rgba(59, 130, 246, 0.35)) !important",
+                // Premium hover: bar lifts and glows
+                "& rect.task:hover, & rect.done:hover, & rect.active:hover": {
+                  filter: "brightness(1.45) drop-shadow(0 3px 14px rgba(79, 120, 245, 0.65)) !important",
+                  transform: "translateY(-2px) scaleY(1.06) !important",
                 },
-                "& rect.done, & .done rect": {
-                  fill: "#10B981 !important",
-                  stroke: "rgba(16, 185, 129, 0.3) !important",
+                "& rect.crit, & rect.blocked": {
+                  fill: "#DC2626 !important",
+                  stroke: "rgba(220, 38, 38, 0.20) !important",
                   strokeWidth: "1px !important",
-                  rx: "8px !important",
-                  ry: "8px !important",
-                  filter: "drop-shadow(0 4px 8px rgba(0, 0, 0, 0.25)) !important",
-                  transition: "all 200ms ease-in-out !important",
+                  transition: "filter 220ms cubic-bezier(0.4,0,0.2,1), transform 220ms cubic-bezier(0.4,0,0.2,1) !important",
+                  transformBox: "fill-box !important",
+                  transformOrigin: "center !important",
+                  cursor: "pointer !important",
                 },
-                "& .done:hover rect, & rect.done:hover": {
-                  fill: "#34d399 !important",
-                  stroke: "rgba(16, 185, 129, 0.6) !important",
-                  filter: "drop-shadow(0 0 12px rgba(16, 185, 129, 0.35)) !important",
+                "& rect.crit:hover, & rect.blocked:hover": {
+                  filter: "brightness(1.35) drop-shadow(0 3px 14px rgba(239, 68, 68, 0.6)) !important",
+                  transform: "translateY(-2px) scaleY(1.06) !important",
                 },
-                "& rect.active, & .active rect": {
-                  fill: "#8B5CF6 !important",
-                  stroke: "rgba(139, 92, 246, 0.3) !important",
+                "& rect.milestone, & polygon.milestone, & path.milestone": {
+                  fill: "#D97706 !important",
+                  stroke: "rgba(217, 119, 6, 0.25) !important",
                   strokeWidth: "1px !important",
-                  rx: "8px !important",
-                  ry: "8px !important",
-                  filter: "drop-shadow(0 4px 8px rgba(0, 0, 0, 0.25)) !important",
-                  transition: "all 200ms ease-in-out !important",
+                  transition: "filter 220ms cubic-bezier(0.4,0,0.2,1), transform 220ms cubic-bezier(0.4,0,0.2,1) !important",
+                  transformBox: "fill-box !important",
+                  transformOrigin: "center !important",
+                  cursor: "pointer !important",
                 },
-                "& .active:hover rect, & rect.active:hover": {
-                  fill: "#a78bfa !important",
-                  stroke: "rgba(139, 92, 246, 0.6) !important",
-                  filter: "drop-shadow(0 0 12px rgba(139, 92, 246, 0.35)) !important",
-                },
-                "& rect.crit, & .crit rect, & rect.blocked, & .blocked rect": {
-                  fill: "#EF4444 !important",
-                  stroke: "rgba(239, 68, 68, 0.3) !important",
-                  strokeWidth: "1px !important",
-                  rx: "8px !important",
-                  ry: "8px !important",
-                  filter: "drop-shadow(0 4px 8px rgba(0, 0, 0, 0.25)) !important",
-                  transition: "all 200ms ease-in-out !important",
-                },
-                "& .crit:hover rect, & rect.crit:hover, & .blocked:hover rect, & rect.blocked:hover": {
-                  fill: "#f87171 !important",
-                  stroke: "rgba(239, 68, 68, 0.6) !important",
-                  filter: "drop-shadow(0 0 12px rgba(239, 68, 68, 0.35)) !important",
-                },
-                "& rect.milestone, & .milestone rect, & polygon.milestone, & .milestone polygon, & path.milestone, & .milestone path": {
-                  fill: "#F59E0B !important",
-                  stroke: "rgba(245, 158, 11, 0.3) !important",
-                  strokeWidth: "1px !important",
-                  filter: "drop-shadow(0 4px 8px rgba(0, 0, 0, 0.25)) !important",
-                  transition: "all 200ms ease-in-out !important",
-                },
-                "& .milestone:hover rect, & .milestone:hover polygon, & .milestone:hover path": {
-                  fill: "#fbbf24 !important",
-                  stroke: "rgba(245, 158, 11, 0.6) !important",
-                  filter: "drop-shadow(0 0 12px rgba(245, 158, 11, 0.35)) !important",
+                "& rect.milestone:hover, & polygon.milestone:hover, & path.milestone:hover": {
+                  filter: "brightness(1.35) drop-shadow(0 3px 14px rgba(245, 158, 11, 0.6)) !important",
+                  transform: "translateY(-2px) scale(1.08) !important",
                 },
                 // Gantt Staggered Entrance Animations keyframes trigger
                 "@keyframes ganttFadeIn": {
