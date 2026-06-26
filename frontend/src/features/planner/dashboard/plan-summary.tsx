@@ -42,52 +42,72 @@ export function PlanSummary({ summary }: PlanSummaryProps) {
   // Take first 3 lines or first 300 chars for a concise overview
   const overviewText = stripMarkdown(fullOverview.split('\n').slice(0, 3).join('\n').trim());
 
-  // Extract Itinerary
-  const itineraryMatch = summary.match(/\[5\] Synthesized Daily Itinerary\s*-+\s*([\s\S]*)/);
-  const itineraryText = itineraryMatch ? itineraryMatch[1].trim() : "";
 
+  // ── Helper: parse day blocks from any text ─────────────────────────────────
+  // Accepts: "Day 1:", "**Day 1:**", "### Day 1 -", "DAY 1:", etc.
+  const DAY_SPLIT  = /(?=(?:\*{0,2}#{0,3}\s*)?(?:Day|DAY)\s+\d+\s*[:\-–—])/;
+  const DAY_HEADER = /(?:\*{0,2}#{0,3}\s*)?(?:Day|DAY)\s+(\d+)\s*[:\-–—]\s*\*{0,2}([^\n*]*)\*{0,2}\n?([\s\S]*)/;
+
+  function parseDayBlock(block: string): { day: string; title: string; date: string; weather: string; activities: string; budget: string } | null {
+    const m = block.match(DAY_HEADER);
+    if (!m) return null;
+    let content = m[3].trim();
+
+    const budgetM = content.match(/(?:Daily Budget|Budget breakdown|Estimated Costs|Budget):?\s*([\s\S]*?)(?=\n\n|\nDay \d+:|$)/i);
+    let budget = "";
+    if (budgetM) { budget = stripMarkdown(budgetM[1].trim()); content = content.replace(budgetM[0], "").trim(); }
+
+    const weatherM = content.match(/\*\*?([^*]*?(?:°[CF]|Cloudy|Sunny|Rain|Clear|Overcast|Snow|Fog|Haze|Warm|Cool|Hot|Cold|Mild|Partly|Mostly)[^*]*?)\*\*?/i);
+    const weather = weatherM ? stripMarkdown(weatherM[1].trim()) : "";
+    if (weatherM) content = content.replace(weatherM[0], "").trim();
+
+    const dateM = content.match(/\*\*?(\d{4}-\d{2}-\d{2})\*\*?/);
+    const date = dateM ? dateM[1] : "";
+    if (dateM) content = content.replace(dateM[0], "").trim();
+
+    return { day: m[1], title: stripMarkdown(m[2].trim()), date, weather, activities: stripMarkdown(content), budget };
+  }
+
+  // ── GUARANTEED itineraryDays population — 5-level waterfall ───────────────
   const itineraryDays: { day: string; title: string; date?: string; weather?: string; activities: string; budget: string }[] = [];
-  if (itineraryText) {
-    const dayBlocks = itineraryText.split(/(?=Day \d+:)/).filter(b => b.trim().length > 0);
-    dayBlocks.forEach(block => {
-      const dayMatch = block.match(/Day (\d+): (.*)\n?([\s\S]*)/);
-      if (dayMatch) {
-        const dayNum = dayMatch[1];
-        const title = stripMarkdown(dayMatch[2].trim());
-        let content = dayMatch[3].trim();
-        
-        // Try to extract Daily Budget from content
-        const budgetRegex = /(?:Daily Budget|Budget breakdown|Estimated Costs|Budget):?\s*([\s\S]*?)(?=\n\n|\nDay \d+:|$)/i;
-        const budgetMatch = content.match(budgetRegex);
-        let budget = "";
-        if (budgetMatch) {
-            budget = stripMarkdown(budgetMatch[1].trim());
-            content = content.replace(budgetMatch[0], "").trim();
-        }
 
-        // Extract weather - looking for something like "**Partly Cloudy, 26°C**"
-        const weatherMatch = content.match(/\*\*?([^*]*?(?:°C|°F|Cloudy|Sunny|Rain|Clear)[^*]*?)\*\*?/i);
-        const weather = weatherMatch ? stripMarkdown(weatherMatch[1].trim()) : "";
-        if (weatherMatch) {
-            content = content.replace(weatherMatch[0], "").trim();
-        }
+  // LEVEL 1 & 2: Try to find the [5] section header (loose match)
+  const sectionMatch =
+    summary.match(/\[5\]\s*Synthesized Daily Itinerary\s*[-─]*\s*\n?([\s\S]*)/) ||
+    summary.match(/\[5\]\s*Daily Itinerary\s*[-─]*\s*\n?([\s\S]*)/) ||
+    summary.match(/Daily Itinerary\s*[-─]+\s*\n?([\s\S]*)/i);
+  const sectionText = sectionMatch ? sectionMatch[1].trim() : "";
 
-        // Extract Date - looking for "**2026-07-02**"
-        const dateMatch = content.match(/\*\*?(\d{4}-\d{2}-\d{2})\*\*?/);
-        const date = dateMatch ? dateMatch[1] : "";
-        if (dateMatch) {
-             content = content.replace(dateMatch[0], "").trim();
-        }
-        
-        itineraryDays.push({
-          day: dayNum,
-          title,
-          date,
-          weather,
-          activities: stripMarkdown(content),
-          budget
-        });
-      }
+  if (sectionText) {
+    // Try structured Day N: parsing within the section
+    const blocks = sectionText.split(DAY_SPLIT).filter(b => b.trim().length > 0);
+    blocks.forEach(b => { const d = parseDayBlock(b); if (d) itineraryDays.push(d); });
+
+    // LEVEL 4: Section found but zero Day blocks → show raw section as one card
+    if (itineraryDays.length === 0) {
+      itineraryDays.push({ day: "1", title: "Travel Itinerary", date: "", weather: "", activities: stripMarkdown(sectionText), budget: "" });
+    }
+  }
+
+  // LEVEL 3: No [5] section header → scan the ENTIRE summary for Day N patterns
+  if (itineraryDays.length === 0) {
+    const globalBlocks = summary.split(DAY_SPLIT).filter(b => b.trim().length > 0 && DAY_HEADER.test(b));
+    globalBlocks.forEach(b => { const d = parseDayBlock(b); if (d) itineraryDays.push(d); });
+  }
+
+  // LEVEL 5: Absolute fallback — nothing matched at all → show the full summary
+  if (itineraryDays.length === 0) {
+    // Strip the obvious header sections and show everything as one readable block
+    const stripped = stripMarkdown(
+      summary.replace(/\[1\].*?\n[-─]+\n/s, "").replace(/\[\d\][^\n]*/g, "").trim()
+    );
+    itineraryDays.push({
+      day: "1",
+      title: "Full Travel Plan",
+      date: "",
+      weather: "",
+      activities: stripped || summary,
+      budget: "",
     });
   }
 
@@ -288,9 +308,35 @@ export function PlanSummary({ summary }: PlanSummaryProps) {
                         </Typography>
 
                         {item.weather && (
-                          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2.5, backgroundColor: "rgba(255, 255, 255, 0.03)", width: "fit-content", px: 1.5, py: 0.6, borderRadius: 1.5, border: "1px solid rgba(255, 255, 255, 0.05)" }}>
-                            <WbSunnyIcon sx={{ color: "#F59E0B", fontSize: "1rem" }} />
-                            <Typography variant="body2" fontWeight={600} color="#CBD5E1" sx={{ fontSize: "0.85rem" }}>
+                          <Stack
+                            direction="row"
+                            spacing={1.25}
+                            alignItems="center"
+                            sx={{
+                              mb: 2.5,
+                              width: "fit-content",
+                              px: 2,
+                              py: 0.85,
+                              borderRadius: "12px",
+                              background: "linear-gradient(135deg, rgba(251, 191, 36, 0.14) 0%, rgba(245, 158, 11, 0.08) 100%)",
+                              border: "1px solid rgba(251, 191, 36, 0.28)",
+                              boxShadow: "0 0 16px rgba(251, 191, 36, 0.12), inset 0 1px 0 rgba(255,255,255,0.05)",
+                            }}
+                          >
+                            <WbSunnyIcon sx={{ color: "#FCD34D", fontSize: "1.2rem", filter: "drop-shadow(0 0 4px rgba(252,211,77,0.6))" }} />
+                            <Typography
+                              variant="body2"
+                              fontWeight={700}
+                              sx={{
+                                fontSize: "0.88rem",
+                                // Temperature numbers rendered in warm amber
+                                background: "linear-gradient(90deg, #FCD34D 0%, #F59E0B 100%)",
+                                WebkitBackgroundClip: "text",
+                                WebkitTextFillColor: "transparent",
+                                backgroundClip: "text",
+                                letterSpacing: "-0.01em",
+                              }}
+                            >
                               {item.weather}
                             </Typography>
                           </Stack>
@@ -304,19 +350,23 @@ export function PlanSummary({ summary }: PlanSummaryProps) {
                                const activity = line.replace(timeMatch[0], '').trim();
                                return (
                                  <Box key={idx} sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', mb: 1.5 }}>
-                                   <Chip 
-                                     icon={<AccessTimeIcon sx={{ fontSize: '0.85rem !important' }} />}
-                                     label={time} 
-                                     size="small" 
-                                     sx={{ 
-                                       height: 24,
-                                       backgroundColor: 'rgba(59, 130, 246, 0.12)', 
-                                       color: '#60A5FA', 
+                                   <Chip
+                                     icon={<AccessTimeIcon sx={{ fontSize: '0.9rem !important', color: '#93C5FD !important', filter: 'drop-shadow(0 0 3px rgba(59,130,246,0.5))' }} />}
+                                     label={time}
+                                     size="small"
+                                     sx={{
+                                       height: 26,
+                                       flexShrink: 0,
+                                       background: "linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.12) 100%)",
+                                       color: '#93C5FD',
                                        fontWeight: 700,
-                                       borderRadius: '6px',
-                                       border: '1px solid rgba(59, 130, 246, 0.2)',
-                                       '& .MuiChip-label': { px: 1, fontSize: '0.75rem' }
-                                     }} 
+                                       borderRadius: '8px',
+                                       border: '1px solid rgba(59, 130, 246, 0.35)',
+                                       boxShadow: '0 0 10px rgba(59, 130, 246, 0.18), inset 0 1px 0 rgba(255,255,255,0.06)',
+                                       letterSpacing: '0.02em',
+                                       '& .MuiChip-label': { px: 1.25, fontSize: '0.78rem', fontWeight: 700 },
+                                       '& .MuiChip-icon': { ml: 0.75 },
+                                     }}
                                    />
                                    <Typography variant="body2" sx={{ color: "#E2E8F0", lineHeight: 1.6, pt: 0.2 }}>
                                      {activity}
