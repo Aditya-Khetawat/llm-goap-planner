@@ -7,7 +7,9 @@ package com.cps.mcp.weather.model;
 public class WeatherReport {
 
     public enum WeatherSeverity {
-        GOOD, MODERATE, POOR
+        GOOD, MODERATE, POOR,
+        /** No weather data was available, so no judgement is made. */
+        UNKNOWN
     }
 
     private final String location;
@@ -61,6 +63,11 @@ public class WeatherReport {
 
     public WeatherSeverity getSeverity() {
         return severity;
+    }
+
+    /** Formats a measurement, or returns "unavailable" when no value was reported (NaN). */
+    public static String formatMeasure(double value, String format) {
+        return Double.isNaN(value) ? "unavailable" : String.format(format, value);
     }
 
     @Override

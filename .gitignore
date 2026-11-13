@@ -48,3 +48,13 @@ venv/
 .antigravity*
 embabel-mcp/src/main/resources/application.properties
 **/application-local.properties
+# Local scratch output
+tmp_*.json
+request.json
+ollama_test.json
+ollama_request.json
+introspection_dump*.txt
+
+# Local secrets
+application-local.properties
+.env

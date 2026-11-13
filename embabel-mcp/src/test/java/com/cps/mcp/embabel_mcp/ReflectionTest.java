@@ -212,8 +212,7 @@ public class ReflectionTest {
 
     @Test
     public void verifyBlackboardInjectionBehavior() throws Exception {
-        java.io.File logFile = new java.io.File(
-                "C:\\Users\\atmar\\.gemini\\antigravity-ide\\brain\\6182c3cd-c089-457d-a52c-20e20cc241ef\\test_run.log");
+        java.io.File logFile = new java.io.File(System.getProperty("java.io.tmpdir"), "reflection_test_run.log");
         java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter(logFile));
         pw.println("=== START VERIFICATION TEST ===");
 

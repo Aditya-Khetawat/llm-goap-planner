@@ -29,6 +29,9 @@ public class PlanService {
 
     public record PlanWithSource(String source, PlanResponse response) {}
 
+    /** Status shown for plans that did not come from the GOAP planner, so the UI marks them as a warning. */
+    private static final String FALLBACK_STATUS = "Fallback warning";
+
     public PlanWithSource generatePlanWithSource(PlanRequest request) {
         String goal = normalizeGoal(request == null ? null : request.goal());
         List<String> tools = request != null ? request.tools() : List.of();
@@ -50,8 +53,8 @@ public class PlanService {
         if (llmResult != null) {
                 PlanResponse resp = new PlanResponse(
                     llmResult.goal,
-                    llmResult.summary,
-                    "Ready",
+                    "LLM-only fallback (GOAP planner unavailable): " + llmResult.summary,
+                    FALLBACK_STATUS,
                     llmResult.steps,
                     llmResult.assignments,
                     llmResult.mermaidDiagram,
@@ -70,8 +73,8 @@ public class PlanService {
 
         PlanResponse resp = new PlanResponse(
             goal,
-            blueprint.summary(),
-            "Ready",
+            "Example template only (GOAP planner unavailable): " + blueprint.summary(),
+            FALLBACK_STATUS,
             blueprint.steps(),
             blueprint.assignments(),
             blueprint.mermaidDiagram(),

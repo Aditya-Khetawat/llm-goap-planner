@@ -304,8 +304,14 @@ public class PlanController {
         // Create ProcessOptions using seeded proxy blackboard
         ProcessOptions options = new ProcessOptions().withBlackboard(proxyBlackboard);
 
-        // Run autonomy with mapped terminal goal
-        AgentProcessExecution execution = autonomy.chooseAndRunAgent(mappedGoalStr, options);
+        // Run TravelPlannerAgent directly with the mapped terminal goal. Intent is
+        // already classified above, so LLM-based agent ranking is skipped; the GOAP
+        // planner still chooses the actions and the LLM still runs inside them.
+        com.embabel.agent.core.Agent travelAgent = autonomy.getAgentPlatform().agents().stream()
+                .filter(a -> "TravelPlannerAgent".equals(a.getName()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("TravelPlannerAgent is not deployed"));
+        AgentProcessExecution execution = autonomy.runAgent(new UserInput(mappedGoalStr), options, travelAgent);
         AgentProcess process = execution.getAgentProcess();
 
         Class<?> agentClass = com.cps.mcp.agent.TravelPlannerAgent.class;

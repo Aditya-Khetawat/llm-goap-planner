@@ -154,8 +154,12 @@ public class EmbabelTraceMapper {
 
         if (obj instanceof com.cps.mcp.weather.model.WeatherReport) {
             com.cps.mcp.weather.model.WeatherReport wr = (com.cps.mcp.weather.model.WeatherReport) obj;
-            return String.format("Location: %s\nCondition: %s\nTemperature: %.1f°C\nHumidity: %.1f%%\nWind Speed: %.1f km/h\nSeverity: %s\nProvider: %s",
-                wr.getLocation(), wr.getCondition(), wr.getTemperature(), wr.getHumidity(), wr.getWindSpeed(), wr.getSeverity(), wr.getProvider());
+            return String.format("Location: %s\nCondition: %s\nTemperature: %s\nHumidity: %s\nWind Speed: %s\nSeverity: %s\nProvider: %s",
+                wr.getLocation(), wr.getCondition(),
+                com.cps.mcp.weather.model.WeatherReport.formatMeasure(wr.getTemperature(), "%.1f°C"),
+                com.cps.mcp.weather.model.WeatherReport.formatMeasure(wr.getHumidity(), "%.1f%%"),
+                com.cps.mcp.weather.model.WeatherReport.formatMeasure(wr.getWindSpeed(), "%.1f km/h"),
+                wr.getSeverity(), wr.getProvider());
         }
 
         if (obj instanceof com.cps.mcp.budget.model.BudgetEstimate) {

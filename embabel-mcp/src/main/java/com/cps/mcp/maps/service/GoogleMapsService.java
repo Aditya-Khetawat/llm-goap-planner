@@ -57,7 +57,7 @@ public class GoogleMapsService {
 
         @Override
         public String toString() {
-            return String.format("Route from %s to %s: %s (%s) %s. [View Route on Google Maps](%s)", origin, destination, distance, duration, summary != null && !summary.isBlank() ? "via " + summary : "Main Route", mapLink);
+            return String.format("Route from %s to %s: %s (%s)%s. [View Route on Google Maps](%s)", origin, destination, distance, duration, summary != null && !summary.isBlank() ? " via " + summary : "", mapLink);
         }
     }
 
@@ -93,7 +93,7 @@ public class GoogleMapsService {
                             String durationText = durationMap != null ? (String) durationMap.get("text") : "Unknown duration";
                             
                             logger.info("GoogleMaps: API routing success. Distance: {}, Duration: {}", distanceText, durationText);
-                            return new RouteInfo(origin, destination, distanceText, durationText, summary != null && !summary.isBlank() ? "via " + summary : "Main Route");
+                            return new RouteInfo(origin, destination, distanceText, durationText, summary);
                         }
                     }
                 }
@@ -109,9 +109,9 @@ public class GoogleMapsService {
 
     private RouteInfo getDirectionsFromSearch(String origin, String destination) {
         logger.info("GoogleMaps Fallback: Running web search for directions from '{}' to '{}'", origin, destination);
-        String distance = "100 km (estimate)";
-        String duration = "2 hours (estimate)";
-        String summary = "Main connected highway";
+        String distance = "Unknown distance";
+        String duration = "Unknown duration";
+        String summary = "";
 
         boolean isMock = searchProvider == null || 
                          searchProvider.getName() == null || 
@@ -129,7 +129,11 @@ public class GoogleMapsService {
                         searchContent.append(r.getTitle()).append(": ").append(r.getContent()).append("\n");
                     }
                 }
-                
+                if (searchContent.length() == 0) {
+                    logger.warn("GoogleMaps Fallback: no search results for the route; leaving it unknown.");
+                    return new RouteInfo(origin, destination, distance, duration, summary);
+                }
+
                 String prompt = String.format(
                     "Based on the following search results about the driving route/directions between %s and %s, extract the distance, travel duration, and a brief description of the route.\n" +
                     "Search Results:\n%s\n" +
@@ -139,7 +143,7 @@ public class GoogleMapsService {
                     "  \"duration\": \"3 hours\",\n" +
                     "  \"summary\": \"Via National Highway 29\"\n" +
                     "}\n" +
-                    "Provide reasonable estimates based on search results.",
+                    "Only use figures stated in the search results. If a value is not stated, use \"unknown\" for it.",
                     origin, destination, searchContent.toString()
                 );
                 

@@ -14,6 +14,8 @@ export interface PlannerGeneratePlanResponse {
   ganttDiagram?: string;
   summary: string;
   source: string;
+  /** Measured client-side round-trip time of the plan request, in milliseconds. */
+  elapsedMs?: number;
 }
 
 export interface PlannerExecutionSnapshot {

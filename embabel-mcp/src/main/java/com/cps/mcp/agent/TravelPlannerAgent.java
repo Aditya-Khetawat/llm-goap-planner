@@ -393,10 +393,11 @@ public class TravelPlannerAgent {
                          searchProvider.getClass().getName().contains("Proxy");
 
         // Step 1: Gather current-conditions context from provider as seed for the LLM
-        double seedTemp = 22.0;
+        double seedTemp = Double.NaN;
+        WeatherReport seed = null;
         StringBuilder providerContext = new StringBuilder();
         try {
-            WeatherReport seed = weatherProvider.getWeather(dest.name());
+            seed = weatherProvider.getWeather(dest.name());
             if (seed != null) {
                 seedTemp = seed.getTemperature();
                 providerContext.append(String.format(
@@ -421,6 +422,9 @@ public class TravelPlannerAgent {
                     for (com.cps.mcp.search.model.SearchResult r : searchData.getResults()) {
                         searchContent.append(r.getTitle()).append(": ").append(r.getContent()).append("\n");
                     }
+                }
+                if (searchContent.length() == 0) {
+                    throw new IllegalStateException("no weather data to summarise");
                 }
 
                 // Build the per-day label instruction
@@ -447,7 +451,7 @@ public class TravelPlannerAgent {
                 }
 
                 String prompt = String.format(
-                    "You are a weather expert. Based on the information below, provide a realistic day-by-day weather forecast for %s.\n\n" +
+                    "You are a weather expert. Summarise the day-by-day weather forecast for %s using only the information below.\n\n" +
                     "Weather Data:\n%s\n" +
                     "Instructions: %s\n\n" +
                     "Output EXACTLY a JSON object with NO extra text or markdown fences:\n" +
@@ -456,9 +460,9 @@ public class TravelPlannerAgent {
                     "  \"condition\": \"<pipe-separated per-day entries, e.g. 2025-07-10: Sunny 28°C | 2025-07-11: Rainy 22°C>\",\n" +
                     "  \"humidity\": <average humidity 0-100>,\n" +
                     "  \"windSpeed\": <average wind speed km/h>,\n" +
-                    "  \"severity\": \"<GOOD|MODERATE|POOR>\"\n" +
+                    "  \"severity\": \"<GOOD|MODERATE|POOR|UNKNOWN>\"\n" +
                     "}\n" +
-                    "Base estimates on typical seasonal climate if real data is unavailable. The condition MUST contain a per-day breakdown separated by ' | '.",
+                    "Only use values stated in the weather data; do not guess from typical climate. For any day the data does not cover, write '<day label>: no forecast data'. The condition MUST contain a per-day breakdown separated by ' | '.",
                     dest.name(), searchContent.toString(), dayLabels
                 );
 
@@ -475,9 +479,9 @@ public class TravelPlannerAgent {
 
                 double temperature = seedTemp;
                 String condition   = "Forecast unavailable";
-                double humidity    = 55.0;
-                double windSpeed   = 12.0;
-                String severityStr = "GOOD";
+                double humidity    = Double.NaN;
+                double windSpeed   = Double.NaN;
+                String severityStr = "UNKNOWN";
 
                 java.util.regex.Pattern pTemp = java.util.regex.Pattern.compile("\"temperature\"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)");
                 java.util.regex.Matcher mTemp = pTemp.matcher(llmOutput);
@@ -500,11 +504,11 @@ public class TravelPlannerAgent {
                 if (mSev.find()) severityStr = mSev.group(1);
 
                 com.cps.mcp.weather.model.WeatherReport.WeatherSeverity severity =
-                        com.cps.mcp.weather.model.WeatherReport.WeatherSeverity.GOOD;
+                        com.cps.mcp.weather.model.WeatherReport.WeatherSeverity.UNKNOWN;
                 try {
                     severity = com.cps.mcp.weather.model.WeatherReport.WeatherSeverity
                             .valueOf(severityStr.toUpperCase().trim());
-                } catch (Exception ex) { /* fallback to GOOD */ }
+                } catch (Exception ex) { /* keep UNKNOWN */ }
 
                 String provider = hasDates ? "llm-date-forecast" : "llm-daily-forecast";
                 WeatherReport report = new WeatherReport(dest.name(), temperature, condition,
@@ -517,18 +521,15 @@ public class TravelPlannerAgent {
             }
         }
 
-        // Step 3: Fallback — use provider result (single-condition) or hard mock
-        if (providerContext.length() > 0) {
-            try {
-                WeatherReport seed = weatherProvider.getWeather(dest.name());
-                logger.warn("getWeather: LLM unavailable. Returning single-condition provider report for {}.", dest.name());
-                return seed;
-            } catch (Exception ignored) {}
+        // Step 3: Fallback — use provider result (single-condition), else report that no data is available
+        if (seed != null) {
+            logger.warn("getWeather: LLM unavailable. Returning single-condition provider report for {}.", dest.name());
+            return seed;
         }
-        logger.warn("getWeather: All sources failed for {}. Returning mock.", dest.name());
-        return new WeatherReport(dest.name(), 20.0, "Mostly Sunny", 60.0, 12.0,
-                System.currentTimeMillis(), "mock-weather-fallback",
-                com.cps.mcp.weather.model.WeatherReport.WeatherSeverity.GOOD);
+        logger.warn("getWeather: All sources failed for {}. Reporting weather as unavailable.", dest.name());
+        return new WeatherReport(dest.name(), Double.NaN, "Weather data unavailable", Double.NaN, Double.NaN,
+                System.currentTimeMillis(), "unavailable",
+                com.cps.mcp.weather.model.WeatherReport.WeatherSeverity.UNKNOWN);
     }
 
     @Action(description = "Get route and travel directions details for destination")
@@ -689,7 +690,7 @@ public class TravelPlannerAgent {
                             "  \"transport\": 30.00,\n" +
                             "  \"misc\": 15.00\n" +
                             "}\n" +
-                            "Note: Provide reasonable estimates based on search results. Convert local currency to USD.";
+                            "Note: Base each figure on costs stated in the search results, converted to USD. If a category is not covered by the results, keep the value shown above.";
                     
                     String llmOutput = chatModel.call(prompt);
                     if (llmOutput.contains("```")) {
@@ -756,7 +757,7 @@ public class TravelPlannerAgent {
                             "  \"transport\": 30.00,\n" +
                             "  \"misc\": 15.00\n" +
                             "}\n" +
-                            "Note: Provide reasonable estimates based on search results. Convert local currency to USD.";
+                            "Note: Base each figure on costs stated in the search results, converted to USD. If a category is not covered by the results, keep the value shown above.";
                     
                     String llmOutput = chatModel.call(prompt);
                     if (llmOutput.contains("```")) {
@@ -945,9 +946,9 @@ public class TravelPlannerAgent {
         composedOutput.append("--------------------------------------------------\n");
         composedOutput.append("- Location: ").append(weatherData.getLocation()).append("\n");
         composedOutput.append("- Condition: ").append(weatherData.getCondition()).append("\n");
-        composedOutput.append("- Temperature: ").append(weatherData.getTemperature()).append("°C\n");
-        composedOutput.append("- Humidity: ").append(weatherData.getHumidity()).append("%\n");
-        composedOutput.append("- Wind Speed: ").append(weatherData.getWindSpeed()).append(" km/h\n");
+        composedOutput.append("- Temperature: ").append(WeatherReport.formatMeasure(weatherData.getTemperature(), "%.1f°C")).append("\n");
+        composedOutput.append("- Humidity: ").append(WeatherReport.formatMeasure(weatherData.getHumidity(), "%.0f%%")).append("\n");
+        composedOutput.append("- Wind Speed: ").append(WeatherReport.formatMeasure(weatherData.getWindSpeed(), "%.1f km/h")).append("\n");
         composedOutput.append("- Severity: ").append(weatherData.getSeverity()).append("\n");
         composedOutput.append("- Provider: ").append(weatherData.getProvider()).append("\n\n");
 
@@ -983,7 +984,7 @@ public class TravelPlannerAgent {
                     "Use the following search results about the destination:\n%s\n\n" +
                     "The traveler's budget details are:\n- Duration: %d days\n- Total Cost Estimate: %s\n\n" +
                     "%s" +
-                    "Overall weather summary:\n- Location: %s\n- Avg Temperature: %.1f°C\n- Severity: %s\n\n" +
+                    "Overall weather summary:\n- Location: %s\n- Avg Temperature: %s\n- Severity: %s\n\n" +
                     "Route and distance details (include this routing in the daily plan):\n- %s\n\n" +
                     "Airbnb Accommodation options (recommend these stays in the daily plan where appropriate):\n%s\n\n" +
                     "Generate a beautifully formatted daily itinerary. " +
@@ -995,7 +996,7 @@ public class TravelPlannerAgent {
                     dateContext,
                     searchResultsForLlm, days, budgetData.getTotalEstimate().toString(),
                     weatherDailyNote,
-                    weatherData.getLocation(), weatherData.getTemperature(), weatherData.getSeverity(),
+                    weatherData.getLocation(), WeatherReport.formatMeasure(weatherData.getTemperature(), "%.1f°C"), weatherData.getSeverity(),
                     routeInfoFormatted, accommodationFormatted
                 );
                 llmItinerary = chatModel.call(prompt);

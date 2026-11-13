@@ -95,13 +95,24 @@ public class EmbabelDefaultRuntimeTests {
         org.mockito.Mockito.when(mockExecution.getAgentProcess()).thenReturn(mockProcess);
         org.mockito.Mockito.when(mockExecution.getOutput()).thenReturn("Mock Trip Plan");
 
-        org.mockito.Mockito.when(autonomy.chooseAndRunAgent(org.mockito.Mockito.anyString(), org.mockito.Mockito.any()))
+        stubTravelAgentLookup();
+        org.mockito.Mockito.when(autonomy.runAgent(org.mockito.Mockito.any(), org.mockito.Mockito.any(), org.mockito.Mockito.any()))
             .thenReturn(mockExecution);
     }
 
     private void stubAutonomyFailure() throws Exception {
-        org.mockito.Mockito.when(autonomy.chooseAndRunAgent(org.mockito.Mockito.anyString(), org.mockito.Mockito.any()))
+        stubTravelAgentLookup();
+        org.mockito.Mockito.when(autonomy.runAgent(org.mockito.Mockito.any(), org.mockito.Mockito.any(), org.mockito.Mockito.any()))
             .thenThrow(new RuntimeException("Simulated Embabel Runtime Failure"));
+    }
+
+    // PlanController runs TravelPlannerAgent by name, so the platform must list it
+    private void stubTravelAgentLookup() {
+        com.embabel.agent.core.Agent travelAgent = org.mockito.Mockito.mock(com.embabel.agent.core.Agent.class);
+        org.mockito.Mockito.when(travelAgent.getName()).thenReturn("TravelPlannerAgent");
+        com.embabel.agent.core.AgentPlatform platform = org.mockito.Mockito.mock(com.embabel.agent.core.AgentPlatform.class);
+        org.mockito.Mockito.when(platform.agents()).thenReturn(List.of(travelAgent));
+        org.mockito.Mockito.when(autonomy.getAgentPlatform()).thenReturn(platform);
     }
 
     @Test

@@ -9,7 +9,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,18 +43,23 @@ public class AirbnbService {
 
         @Override
         public String toString() {
-            return String.format("- [%s](%s) (%s, Rating: %s) - %s", name, link, price, rating, description);
+            String title = link != null ? String.format("[%s](%s)", name, link) : name;
+            return String.format("- %s (%s, Rating: %s) - %s", title, price, rating, description);
         }
     }
 
+    /**
+     * Finds places to stay that are named in live web search results. Returns an empty list
+     * rather than inventing listings when nothing usable is found.
+     */
     public List<AirbnbListing> searchAirbnb(String destination) {
         if (destination == null || destination.isBlank()) {
             throw new IllegalArgumentException("Destination is required for Airbnb search");
         }
 
         List<AirbnbListing> listings = new ArrayList<>();
-        boolean isMock = searchProvider == null || 
-                         searchProvider.getName() == null || 
+        boolean isMock = searchProvider == null ||
+                         searchProvider.getName() == null ||
                          "MockProvider".equalsIgnoreCase(searchProvider.getName()) ||
                          searchProvider.getClass().getName().contains("Mockito") ||
                          searchProvider.getClass().getName().contains("Proxy");
@@ -62,132 +69,77 @@ public class AirbnbService {
                 logger.info("AirbnbService: Searching homestays/Airbnb options in '{}'", destination);
                 String query = String.format("best Airbnb homestays hotels places to stay in %s", destination);
                 SearchResponse searchData = searchProvider.search(query);
-                
+
                 StringBuilder searchContent = new StringBuilder();
+                Set<String> sourceUrls = new HashSet<>();
                 if (searchData != null && searchData.getResults() != null) {
                     for (com.cps.mcp.search.model.SearchResult r : searchData.getResults()) {
-                        searchContent.append(r.getTitle()).append(": ").append(r.getContent()).append("\n");
+                        searchContent.append(r.getTitle()).append(" (").append(r.getUrl()).append("): ").append(r.getContent()).append("\n");
+                        if (r.getUrl() != null) sourceUrls.add(r.getUrl());
                     }
                 }
-                
-                String prompt = String.format(
-                    "Based on the following search results about accommodation in %s, extract the top 3 Airbnb/homestay options.\n" +
-                    "Search Results:\n%s\n" +
-                    "Output EXACTLY a JSON array of objects matching this structure (do not add any extra text or markdown formatting outside the JSON):\n" +
-                    "[\n" +
-                    "  {\n" +
-                    "    \"name\": \"Cozy Hilltop Cottage\",\n" +
-                    "    \"price\": \"$45/night\",\n" +
-                    "    \"rating\": \"4.8\",\n" +
-                    "    \"link\": \"https://www.airbnb.com/rooms/example1\",\n" +
-                    "    \"description\": \"Beautiful views of the valley, close to town center.\"\n" +
-                    "  }\n" +
-                    "]\n" +
-                    "Provide reasonable estimates based on search results. If no specific rating is found, use 'N/A'. If links are not present, create a placeholder link.",
-                    destination, searchContent.toString()
-                );
-                
-                String llmOutput = chatModel.call(prompt);
-                if (llmOutput.contains("```")) {
-                    int start = llmOutput.indexOf("[");
-                    int end = llmOutput.lastIndexOf("]");
-                    if (start != -1 && end != -1 && end > start) {
-                        llmOutput = llmOutput.substring(start, end + 1);
-                    }
-                }
-                
-                // Parse the array using regex to avoid external dependency issues
-                Pattern entryPattern = Pattern.compile("\\{\\s*\"name\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"price\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"rating\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"link\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"description\"\\s*:\\s*\"([^\"]+)\"\\s*\\}");
-                Matcher matcher = entryPattern.matcher(llmOutput.replaceAll("\\s*\\r?\\n\\s*", " "));
-                while (matcher.find()) {
-                    String name = matcher.group(1);
-                    String price = matcher.group(2);
-                    String rating = matcher.group(3);
-                    String link = matcher.group(4);
-                    String description = matcher.group(5);
 
-                    // Normalize links: replace placeholders with a valid Airbnb search URL for the destination
-                    if (link == null || link.contains("example") || link.contains("placeholder") || !link.startsWith("http")) {
-                        try {
-                            link = "https://www.airbnb.com/s/" + java.net.URLEncoder.encode(destination, java.nio.charset.StandardCharsets.UTF_8.name()) + "/homes";
-                        } catch (Exception e) {
-                            link = "https://www.airbnb.com/s/" + destination + "/homes";
+                if (searchContent.length() > 0) {
+                    String prompt = String.format(
+                        "Based on the following search results about accommodation in %s, list up to 3 specific places to stay that are explicitly named in the results.\n" +
+                        "Search Results:\n%s\n" +
+                        "Output EXACTLY a JSON array of objects matching this structure (do not add any extra text or markdown formatting outside the JSON):\n" +
+                        "[\n" +
+                        "  {\n" +
+                        "    \"name\": \"<name exactly as written in the results>\",\n" +
+                        "    \"price\": \"<price as stated, or N/A>\",\n" +
+                        "    \"rating\": \"<rating as stated, or N/A>\",\n" +
+                        "    \"link\": \"<URL of the search result the place appears in>\",\n" +
+                        "    \"description\": \"<one sentence based on the results>\"\n" +
+                        "  }\n" +
+                        "]\n" +
+                        "Do not invent places, prices, ratings or links. Use N/A for anything not stated. If no specific place is named, output [].",
+                        destination, searchContent.toString()
+                    );
+
+                    String llmOutput = chatModel.call(prompt);
+                    if (llmOutput.contains("```")) {
+                        int start = llmOutput.indexOf("[");
+                        int end = llmOutput.lastIndexOf("]");
+                        if (start != -1 && end != -1 && end > start) {
+                            llmOutput = llmOutput.substring(start, end + 1);
                         }
                     }
 
-                    listings.add(new AirbnbListing(name, price, rating, link, description));
+                    // Parse the array using regex to avoid external dependency issues
+                    Pattern entryPattern = Pattern.compile("\\{\\s*\"name\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"price\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"rating\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"link\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"description\"\\s*:\\s*\"([^\"]+)\"\\s*\\}");
+                    Matcher matcher = entryPattern.matcher(llmOutput.replaceAll("\\s*\\r?\\n\\s*", " "));
+                    String haystack = searchContent.toString().toLowerCase();
+                    while (matcher.find()) {
+                        String name = matcher.group(1);
+                        String price = matcher.group(2);
+                        String rating = matcher.group(3);
+                        String link = matcher.group(4);
+                        String description = matcher.group(5);
+
+                        // Keep only places that actually appear in the search results
+                        if (!haystack.contains(name.toLowerCase())) {
+                            logger.info("AirbnbService: Dropping '{}' (not found in search results)", name);
+                            continue;
+                        }
+                        // Keep only links that came from the search results
+                        if (!sourceUrls.contains(link)) {
+                            link = null;
+                        }
+
+                        listings.add(new AirbnbListing(name, price, rating, link, description));
+                    }
                 }
-                
-                logger.info("AirbnbService: Extraction succeeded with {} listings.", listings.size());
+
+                logger.info("AirbnbService: Extraction finished with {} listings.", listings.size());
             } catch (Exception e) {
-                logger.warn("AirbnbService: Extraction failed: {}. Falling back to default listings.", e.getMessage());
-            }
-        }
-        
-        // Fallback or Mock listings if empty
-        if (listings.isEmpty() && chatModel != null) {
-            try {
-                logger.info("AirbnbService: Web search empty, requesting LLM estimation for {}", destination);
-                String prompt = String.format(
-                    "Generate 3 realistic homestay/hotel/Airbnb accommodation options for the destination: %s.\n" +
-                    "For each option, provide a realistic name, average nightly rate (e.g. $75/night), traveler rating (e.g. 4.8), a mock booking link (e.g. https://www.airbnb.com/rooms/12345), and a brief description.\n" +
-                    "Output EXACTLY a JSON array of objects matching this structure (do not add any extra text or markdown formatting outside the JSON):\n" +
-                    "[\n" +
-                    "  {\n" +
-                    "    \"name\": \"Vienna Cozy Studio\",\n" +
-                    "    \"price\": \"$85/night\",\n" +
-                    "    \"rating\": \"4.8\",\n" +
-                    "    \"link\": \"https://www.airbnb.com/rooms/1\",\n" +
-                    "    \"description\": \"Charming studio apartment near city center with free WiFi.\"\n" +
-                    "  }\n" +
-                    "]",
-                    destination
-                );
-                String llmOutput = chatModel.call(prompt);
-                if (llmOutput.contains("```")) {
-                    int start = llmOutput.indexOf("[");
-                    int end = llmOutput.lastIndexOf("]");
-                    if (start != -1 && end != -1 && end > start) {
-                        llmOutput = llmOutput.substring(start, end + 1);
-                    }
-                }
-                Pattern entryPattern = Pattern.compile("\\{\\s*\"name\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"price\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"rating\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"link\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"description\"\\s*:\\s*\"([^\"]+)\"\\s*\\}");
-                Matcher matcher = entryPattern.matcher(llmOutput.replaceAll("\\s*\\r?\\n\\s*", " "));
-                while (matcher.find()) {
-                    String name = matcher.group(1);
-                    String price = matcher.group(2);
-                    String rating = matcher.group(3);
-                    String link = matcher.group(4);
-                    String description = matcher.group(5);
-                    if (link == null || link.contains("example") || link.contains("placeholder") || !link.startsWith("http")) {
-                        link = "https://www.airbnb.com/s/" + java.net.URLEncoder.encode(destination, java.nio.charset.StandardCharsets.UTF_8.name()) + "/homes";
-                    }
-                    listings.add(new AirbnbListing(name, price, rating, link, description));
-                }
-            } catch (Exception ex) {
-                logger.warn("AirbnbService: LLM fallback accommodation estimation failed: {}", ex.getMessage());
+                logger.warn("AirbnbService: Extraction failed: {}. Returning no listings.", e.getMessage());
             }
         }
 
-        // Hardcoded fallback listings if still empty
         if (listings.isEmpty()) {
-            listings.add(new AirbnbListing(
-                "Naga Heritage Homestay",
-                "$35/night",
-                "4.7",
-                "https://www.airbnb.com/rooms/naga-heritage",
-                "Authentic local experience with homemade food and garden view."
-            ));
-            listings.add(new AirbnbListing(
-                "Kohima View Apartment",
-                "$50/night",
-                "4.9",
-                "https://www.airbnb.com/rooms/kohima-view",
-                "Modern apartment overlooking the valley, close to the town center."
-            ));
+            logger.info("AirbnbService: No accommodation listings found for {}", destination);
         }
-        
         return listings;
     }
 }
-

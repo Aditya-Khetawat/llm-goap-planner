@@ -34,9 +34,9 @@ public class WeatherReportResult {
         sb.append("==================================================\n\n");
         sb.append("Location: ").append(report.getLocation()).append("\n");
         sb.append("Condition: ").append(report.getCondition()).append("\n");
-        sb.append("Temperature: ").append(String.format("%.1f°C", report.getTemperature())).append("\n");
-        sb.append("Humidity: ").append(String.format("%.0f%%", report.getHumidity())).append("\n");
-        sb.append("Wind Speed: ").append(String.format("%.1f km/h", report.getWindSpeed())).append("\n");
+        sb.append("Temperature: ").append(WeatherReport.formatMeasure(report.getTemperature(), "%.1f°C")).append("\n");
+        sb.append("Humidity: ").append(WeatherReport.formatMeasure(report.getHumidity(), "%.0f%%")).append("\n");
+        sb.append("Wind Speed: ").append(WeatherReport.formatMeasure(report.getWindSpeed(), "%.1f km/h")).append("\n");
         sb.append("Weather Severity: ").append(report.getSeverity()).append("\n");
         sb.append("Provider: ").append(report.getProvider()).append("\n");
         

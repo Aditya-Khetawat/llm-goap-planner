@@ -1,4 +1,4 @@
-import { Box, Grid, Stack, Typography, Chip, Collapse, IconButton } from "@mui/material";
+import { Alert, Box, Grid, Stack, Typography, Chip, Collapse, IconButton } from "@mui/material";
 import { memo, useEffect, useMemo, useState } from "react";
 
 import { MermaidDiagramViewer } from "@shared/ui/visualization/mermaid-diagram-viewer";
@@ -400,10 +400,19 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
 
   const executionStatus = result.status || "Ready";
 
+  const fallbackNotice =
+    result.source === "BLUEPRINT"
+      ? "The GOAP planner was unavailable, so this is a fixed example template, not a plan generated for your goal."
+      : result.source === "LLM"
+        ? "The GOAP planner was unavailable, so this plan was written by an LLM alone, without GOAP planning or live tool data."
+        : null;
+
   const planningTime = useMemo(() => {
-    const seconds = ((result.trace?.length || 5) * 0.12 + 0.28).toFixed(2);
-    return `${seconds}s`;
-  }, [result.trace]);
+    if (result.elapsedMs == null) return "n/a";
+    const totalSeconds = result.elapsedMs / 1000;
+    if (totalSeconds < 60) return `${totalSeconds.toFixed(1)}s`;
+    return `${Math.floor(totalSeconds / 60)}m ${Math.round(totalSeconds % 60)}s`;
+  }, [result.elapsedMs]);
 
   const metricsList = [
     {
@@ -444,7 +453,7 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
     {
       label: "Planning Time",
       value: planningTime,
-      description: "Execution generation speed",
+      description: "Measured time to generate this plan",
       icon: <ClockIcon sx={{ color: "#06B6D4", fontSize: "1.75rem" }} />,
       color: "#06B6D4",
     },
@@ -497,6 +506,12 @@ export function PlannerDashboard({ result }: PlannerDashboardProps) {
         <Typography variant="h1" component="h1" sx={{ mb: 2 }}>
           {result.goal}
         </Typography>
+
+        {fallbackNotice ? (
+          <Alert severity="warning" variant="outlined" sx={{ mb: 2 }}>
+            {fallbackNotice}
+          </Alert>
+        ) : null}
       </Box>
 
       {/* Plan Summary Section */}
